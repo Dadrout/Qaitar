@@ -58,3 +58,16 @@ test("separates facts, law, and next action without offering unsupported claims"
   assert.match(result, /found &&[\s\S]*onPrepare/);
   assert.match(result, /Официальный источник/);
 });
+
+test("presents generated and incoming documents as actionable workflow artifacts", () => {
+  const claim = readSource("components/qaitar/claim-editor.tsx");
+  const response = readSource("components/qaitar/seller-response.tsx");
+  const bureau = readSource("components/qaitar/document-workspace.tsx");
+  assert.match(claim, /aspect-\[1\/1\.414\]/);
+  assert.match(claim, /aria-label="Действия с претензией"/);
+  assert.match(response, /Ответ продавца получен/);
+  assert.match(response, /следующий официальный шаг/i);
+  assert.match(bureau, /Что это\?/);
+  assert.match(bureau, /Что важно\?/);
+  assert.match(bureau, /Что делать\?/);
+});
