@@ -7,7 +7,7 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { ru } from "../../lib/i18n/ru.ts";
-import { validateUpload } from "../../lib/workflow.ts";
+import { selectUploadBatch } from "../../lib/workflow.ts";
 import type { CaseAnalysis, EvidenceItem } from "../../types/qaitar.ts";
 
 type ProblemType = CaseAnalysis["caseType"];
@@ -38,10 +38,12 @@ export function NewCase({
   const input = useRef<HTMLInputElement>(null);
   const camera = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   function acceptFiles(incoming: File[]) {
-    const valid = incoming.filter((file) => validateUpload(file).ok);
-    onFiles([...files, ...valid].slice(0, 6));
+    const selection = selectUploadBatch(files, incoming);
+    setUploadError(selection.error);
+    onFiles(selection.files);
   }
 
   return (
@@ -70,8 +72,9 @@ export function NewCase({
               <Button type="button" onClick={() => camera.current?.click()} variant="outline" className="h-12 flex-1 rounded-xl bg-white"><Camera /> {ru.newCase.camera}</Button>
             </div>
             <p className="mt-4 text-xs text-muted-foreground">{ru.newCase.limit}</p>
-            <input ref={input} className="sr-only" type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => acceptFiles(Array.from(event.target.files ?? []))} />
-            <input ref={camera} className="sr-only" type="file" accept="image/*" capture="environment" onChange={(event) => acceptFiles(Array.from(event.target.files ?? []))} />
+            <input ref={input} className="sr-only" type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => { acceptFiles(Array.from(event.target.files ?? [])); event.currentTarget.value = ""; }} />
+            <input ref={camera} className="sr-only" type="file" accept="image/*" capture="environment" onChange={(event) => { acceptFiles(Array.from(event.target.files ?? [])); event.currentTarget.value = ""; }} />
+            {uploadError && <p role="alert" className="mt-4 rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive">{uploadError}</p>}
           </div>
 
           {evidence.length > 0 && (
