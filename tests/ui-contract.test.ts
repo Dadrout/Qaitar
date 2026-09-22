@@ -49,3 +49,12 @@ test("labels AI work and fact confirmation as explicit workflow stages", () => {
   assert.match(`${review}\n${copy}`, /Проверьте факты перед юридическим анализом/);
   assert.match(`${review}\n${copy}`, /Подтвердить и проверить закон/);
 });
+
+test("separates facts, law, and next action without offering unsupported claims", () => {
+  const result = readSource("components/qaitar/legal-result.tsx");
+  assert.match(result, /Что произошло/);
+  assert.match(result, /Что говорит закон/);
+  assert.match(result, /Что делать дальше/);
+  assert.match(result, /found &&[\s\S]*onPrepare/);
+  assert.match(result, /Официальный источник/);
+});
