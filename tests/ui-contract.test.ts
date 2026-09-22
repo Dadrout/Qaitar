@@ -39,3 +39,13 @@ test("makes the first screen evidence-first and explains the disabled action", (
   assert.match(screen, /Проверяем по официальным источникам Казахстана/);
   assert.match(screen, /aria-pressed=\{selected\}/);
 });
+
+test("labels AI work and fact confirmation as explicit workflow stages", () => {
+  const progress = readSource("components/qaitar/analysis-progress.tsx");
+  const review = readSource("components/qaitar/case-review.tsx");
+  const copy = readSource("lib/i18n/ru.ts");
+  assert.match(progress, /Qaitar разбирает ситуацию/);
+  assert.match(progress, /aria-live="polite"/);
+  assert.match(`${review}\n${copy}`, /Проверьте факты перед юридическим анализом/);
+  assert.match(`${review}\n${copy}`, /Подтвердить и проверить закон/);
+});
