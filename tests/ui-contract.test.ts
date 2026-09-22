@@ -29,3 +29,13 @@ test("renders distinct completed, current, and upcoming timeline states", () => 
   assert.match(timeline, /step\.status === "complete"/);
   assert.match(timeline, /step\.status === "current"/);
 });
+
+test("makes the first screen evidence-first and explains the disabled action", () => {
+  const screen = readSource("components/qaitar/new-case.tsx");
+  const copy = readSource("lib/i18n/ru.ts");
+  assert.match(`${screen}\n${copy}`, /Загрузите доказательства/);
+  assert.match(`${screen}\n${copy}`, /Что произошло\?/);
+  assert.match(screen, /files\.length === 0[\s\S]*Добавьте хотя бы один файл/);
+  assert.match(screen, /Проверяем по официальным источникам Казахстана/);
+  assert.match(screen, /aria-pressed=\{selected\}/);
+});
