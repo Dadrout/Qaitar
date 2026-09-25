@@ -48,6 +48,7 @@ test("provides a localized multiline problem field and explains required text fo
   assert.match(screen, /validateProblemInput\(problemType, problemDescription\)/);
   assert.match(screen, /problemType === "other"[\s\S]*messages\.newCase\.descriptionRequired/);
   assert.match(screen, /messages\.newCase\.descriptionLabel/);
+  assert.doesNotMatch(screen, /aria-describedby="problem-description-hint problem-description-error"/);
   assert.match(copy, /descriptionLabel: "Опишите проблему"/);
   assert.match(app, /problemDescription=\{caseData\.problemDescription\}/);
 });

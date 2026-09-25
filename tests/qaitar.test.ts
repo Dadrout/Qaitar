@@ -305,6 +305,70 @@ test("uses the exact description in seeded demo analysis", async () => {
   assert.equal(payload.analysis.facts.find((fact) => fact.key === "issue")?.value, payload.analysis.issue);
 });
 
+test("custom seeded demo description replaces the preset narrative and selected case type", async () => {
+  const route = await import("../app/api/analyze/route.ts");
+  const form = new FormData();
+  form.set("demo", "true");
+  form.set("locale", "en");
+  form.set("problemType", "other");
+  form.set("problemDescription", "The seller charged me twice");
+  form.append("files", new File(["receipt"], "receipt.jpg", { type: "image/jpeg" }));
+  form.append("files", new File(["chat"], "seller-chat.png", { type: "image/png" }));
+
+  const response = await route.POST(new Request("http://localhost/api/analyze", {
+    method: "POST", body: form,
+  }));
+  const payload = await response.json() as { analysis: { caseType: string; summary: string; issue: string } };
+  assert.equal(response.status, 200);
+  assert.equal(payload.analysis.caseType, "other");
+  assert.equal(payload.analysis.summary, "The seller charged me twice");
+  assert.equal(payload.analysis.issue, "The seller charged me twice");
+});
+
+test("custom seeded demo analysis cannot receive the preset defective-product recommendation", async () => {
+  const { getDemoCaseAnalysis } = await import("../lib/demo/scenario.ts");
+  const route = await import("../app/api/legal-recommendation/route.ts");
+  const description = "The seller charged me twice";
+  const seeded = getDemoCaseAnalysis("en");
+  const analysis = {
+    ...seeded,
+    caseType: "other",
+    issue: description,
+    summary: description,
+    facts: seeded.facts.map((fact) => fact.key === "issue" ? { ...fact, value: description } : fact),
+  };
+  const response = await route.POST(new Request("http://localhost/api/legal-recommendation", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ analysis, demo: true, locale: "en" }),
+  }));
+  const payload = await response.json() as { recommendation: { status: string; caseType: string; title: string; recommendedAction: string; legalBasis: unknown[] }; retrieved: number; demo: boolean };
+  assert.equal(response.status, 200);
+  assert.equal(payload.demo, true);
+  assert.equal(payload.retrieved, 0);
+  assert.equal(payload.recommendation.status, "no_reliable_basis_found");
+  assert.equal(payload.recommendation.caseType, "other");
+  assert.equal(payload.recommendation.title, "Qaitar did not find a sufficiently reliable legal basis in its sources.");
+  assert.equal(payload.recommendation.recommendedAction, "manual_verification");
+  assert.deepEqual(payload.recommendation.legalBasis, []);
+});
+
+test("unchanged seeded demo keeps its localized recommendation", async () => {
+  const { getDemoCaseAnalysis } = await import("../lib/demo/scenario.ts");
+  const route = await import("../app/api/legal-recommendation/route.ts");
+  const response = await route.POST(new Request("http://localhost/api/legal-recommendation", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ analysis: getDemoCaseAnalysis("en"), demo: true, locale: "en" }),
+  }));
+  const payload = await response.json() as { recommendation: { status: string; title: string }; retrieved: number; demo: boolean };
+  assert.equal(response.status, 200);
+  assert.equal(payload.demo, true);
+  assert.equal(payload.retrieved, 2);
+  assert.equal(payload.recommendation.status, "legal_basis_found");
+  assert.equal(payload.recommendation.title, "You have grounds to request a refund");
+});
+
 test("returns a safe legal fallback with no invented provisions", async () => {
   const legal = await import("../lib/ai/legal-reasoning.ts");
   assert.equal(typeof legal.noReliableLegalBasis, "function");

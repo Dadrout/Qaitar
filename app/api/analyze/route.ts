@@ -5,9 +5,9 @@ import { z } from "zod";
 import { analyzeDocument } from "../../../lib/ai/analyze-document.ts";
 import { buildCase } from "../../../lib/ai/build-case.ts";
 import { getAIUserMessage } from "../../../lib/ai/gemini.ts";
-import type { CaseAnalysisOutput } from "../../../lib/ai/schemas.ts";
+import { CaseAnalysisSchema, type CaseAnalysisOutput } from "../../../lib/ai/schemas.ts";
 import { getDemoCaseAnalysis, isSeededDemo } from "../../../lib/demo/scenario.ts";
-import { normalizeLocale } from "../../../lib/i18n/index.ts";
+import { getMessages, normalizeLocale } from "../../../lib/i18n/index.ts";
 import { getServerSupabase } from "../../../lib/supabase/server.ts";
 import { uploadEvidence } from "../../../lib/supabase/storage.ts";
 import { MAX_FILES, validateUpload } from "../../../lib/workflow.ts";
@@ -84,12 +84,22 @@ export async function POST(request: Request) {
     const fileNames = files.map((file) => file.name);
     if (isSeededDemo({ demo, fileNames })) {
       const seededAnalysis = getDemoCaseAnalysis(locale);
-      const analysis = problemDescription ? {
+      const selectedType = CaseAnalysisSchema.shape.caseType.safeParse(problemType);
+      const caseType = selectedType.success ? selectedType.data : seededAnalysis.caseType;
+      const categoryChanged = caseType !== seededAnalysis.caseType;
+      const categoryLabel = getMessages(locale).newCase.problems.find(([id]) => id === caseType)?.[1];
+      const issue = problemDescription || categoryLabel || seededAnalysis.issue || seededAnalysis.summary;
+      const analysis = (problemDescription || categoryChanged) ? {
         ...seededAnalysis,
-        issue: problemDescription,
-        facts: seededAnalysis.facts.map((fact) => fact.key === "issue"
-          ? { ...fact, value: problemDescription, source: "user" as const }
-          : fact),
+        caseType,
+        summary: issue,
+        issue,
+        sellerResponse: categoryChanged ? null : seededAnalysis.sellerResponse,
+        facts: seededAnalysis.facts
+          .filter((fact) => !categoryChanged || fact.key !== "sellerResponse")
+          .map((fact) => fact.key === "issue"
+            ? { ...fact, value: issue, source: "user" as const }
+            : fact),
       } : seededAnalysis;
       return Response.json({
         caseId,

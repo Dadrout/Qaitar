@@ -123,7 +123,7 @@ export function NewCase({
               <label htmlFor="problem-description" className="text-sm font-semibold">{messages.newCase.descriptionLabel}</label>
               <span className="text-xs text-muted-foreground">{problemDescription.length} / 2 000</span>
             </div>
-            <Textarea id="problem-description" value={problemDescription} onChange={(event) => onProblemDescription(event.target.value)} maxLength={2_000} rows={4} placeholder={messages.newCase.descriptionPlaceholder} aria-describedby="problem-description-hint problem-description-error" aria-invalid={!validation.ok && problemType === "other"} className="mt-2 min-h-28 rounded-xl" />
+            <Textarea id="problem-description" value={problemDescription} onChange={(event) => onProblemDescription(event.target.value)} maxLength={2_000} rows={4} placeholder={messages.newCase.descriptionPlaceholder} aria-describedby={!validation.ok && problemType === "other" ? "problem-description-hint problem-description-error" : "problem-description-hint"} aria-invalid={!validation.ok && problemType === "other"} className="mt-2 min-h-28 rounded-xl" />
             <p id="problem-description-hint" className="mt-2 text-xs leading-5 text-muted-foreground">{messages.newCase.descriptionHint}</p>
             {!validation.ok && problemType === "other" && <p id="problem-description-error" role="alert" className="mt-2 text-sm text-destructive">{messages.newCase.descriptionRequired}</p>}
           </div>
