@@ -51,6 +51,7 @@ test("provides a localized multiline problem field and explains required text fo
   assert.doesNotMatch(screen, /aria-describedby="problem-description-hint problem-description-error"/);
   assert.match(copy, /descriptionLabel: "Опишите проблему"/);
   assert.match(app, /problemDescription=\{caseData\.problemDescription\}/);
+  assert.match(app, /if \(key === "issue"\)[\s\S]*applyReviewIssueEdit/);
 });
 
 test("labels AI work and fact confirmation as explicit workflow stages", () => {

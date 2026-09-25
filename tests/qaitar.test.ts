@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import type { CaseAnalysis } from "../types/qaitar.ts";
 
 test("accepts supported evidence and rejects unsafe uploads", async () => {
   const workflow = await import("../lib/workflow.ts");
@@ -367,6 +368,48 @@ test("unchanged seeded demo keeps its localized recommendation", async () => {
   assert.equal(payload.retrieved, 2);
   assert.equal(payload.recommendation.status, "legal_basis_found");
   assert.equal(payload.recommendation.title, "You have grounds to request a refund");
+});
+
+test("reviewing a seeded demo issue updates every displayed issue field and avoids cached advice", async () => {
+  const analyzeRoute = await import("../app/api/analyze/route.ts");
+  const { applyReviewIssueEdit } = await import("../lib/case-review.ts");
+  const form = new FormData();
+  form.set("demo", "true");
+  form.set("problemType", "defective_product");
+  form.append("files", new File(["receipt"], "receipt.jpg", { type: "image/jpeg" }));
+  form.append("files", new File(["chat"], "seller-chat.png", { type: "image/png" }));
+  const analyzed = await analyzeRoute.POST(new Request("http://localhost/api/analyze", {
+    method: "POST", body: form,
+  }));
+  const { analysis: initial } = await analyzed.json() as { analysis: CaseAnalysis };
+  const description = "Продавец дважды списал оплату";
+  const edited = applyReviewIssueEdit(initial, description, "ru", true);
+
+  assert.equal(edited.problemDescription, description);
+  assert.equal(edited.analysis.issue, description);
+  assert.equal(edited.analysis.summary, description);
+  assert.equal(edited.analysis.facts.find((fact) => fact.key === "issue")?.value, description);
+  assert.equal(edited.analysis.facts.find((fact) => fact.key === "issue")?.source, "user");
+
+  const legalRoute = await import("../app/api/legal-recommendation/route.ts");
+  const response = await legalRoute.POST(new Request("http://localhost/api/legal-recommendation", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ analysis: edited.analysis, demo: true, locale: "ru" }),
+  }));
+  const payload = await response.json() as { recommendation: { status: string; legalBasis: unknown[] } };
+  assert.equal(payload.recommendation.status, "no_reliable_basis_found");
+  assert.deepEqual(payload.recommendation.legalBasis, []);
+});
+
+test("reviewing a normal case issue preserves its document-based summary", async () => {
+  const { applyReviewIssueEdit } = await import("../lib/case-review.ts");
+  const { buildCase } = await import("../lib/ai/build-case.ts");
+  const { documentAnalysisFixture } = await import("./fixtures.ts");
+  const initial = await buildCase([documentAnalysisFixture], { problemType: "defective_product", locale: "en" });
+  const edited = applyReviewIssueEdit(initial, "The left earbud disconnects", "en", false);
+  assert.equal(edited.analysis.issue, "The left earbud disconnects");
+  assert.equal(edited.analysis.summary, initial.summary);
 });
 
 test("returns a safe legal fallback with no invented provisions", async () => {

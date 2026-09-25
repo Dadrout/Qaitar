@@ -5,6 +5,7 @@ import { ArrowRight, Clock3, FileText, Plus } from "lucide-react";
 
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
+import { applyReviewIssueEdit } from "../../lib/case-review.ts";
 import { restoreCaseSnapshot, serializeCaseSnapshot } from "../../lib/client-case.ts";
 import type { Locale } from "../../lib/i18n/index.ts";
 import { getBrowserSupabase } from "../../lib/supabase/browser.ts";
@@ -165,6 +166,10 @@ function QaitarAppContent() {
 
   function updateFact(key: string, value: string) {
     if (!caseData.analysis) return;
+    if (key === "issue") {
+      updateCase(applyReviewIssueEdit(caseData.analysis, value, locale, demo));
+      return;
+    }
     const factValue = key === "purchaseDate" && /^\d{4}-\d{2}-\d{2}$/.test(value)
       ? new Intl.DateTimeFormat({ ru: "ru-RU", kk: "kk-KZ", en: "en-US" }[locale], { day: "numeric", month: "long", year: "numeric" }).format(new Date(`${value}T00:00:00Z`))
       : value;
@@ -173,9 +178,8 @@ function QaitarAppContent() {
     if (key === "product") analysis.product = { ...analysis.product, name: value || null };
     if (key === "amount") analysis.product = { ...analysis.product, price: Number(value.replace(/[^0-9.]/g, "")) || null };
     if (key === "purchaseDate" && /^\d{4}-\d{2}-\d{2}$/.test(value)) analysis.purchaseDate = value;
-    if (key === "issue") analysis.issue = value || null;
     if (key === "sellerResponse") analysis.sellerResponse = value || null;
-    updateCase(key === "issue" ? { analysis, problemDescription: value } : { analysis });
+    updateCase({ analysis });
   }
 
   async function confirmCase() {
