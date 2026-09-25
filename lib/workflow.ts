@@ -10,6 +10,20 @@ const ALLOWED_MIME_TYPES = new Set([
   "image/webp",
 ]);
 
+const MIME_BY_EXTENSION: Record<string, string> = {
+  pdf: "application/pdf",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+};
+
+export function resolveUploadType(file: { name: string; type: string }) {
+  if (file.type) return file.type.toLowerCase();
+  const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+  return MIME_BY_EXTENSION[extension] ?? "";
+}
+
 export function validateProblemInput(problemType: CaseAnalysis["caseType"] | null, description: string) {
   if (!problemType) return { ok: false as const, error: "Выберите тип проблемы" };
   if (problemType === "other" && !description.trim()) {
@@ -36,7 +50,7 @@ const transitions: Record<CaseState, readonly CaseState[]> = {
 };
 
 export function validateUpload(file: { name: string; type: string; size: number }) {
-  if (!ALLOWED_MIME_TYPES.has(file.type)) {
+  if (!ALLOWED_MIME_TYPES.has(resolveUploadType(file))) {
     return { ok: false as const, error: "Этот формат не поддерживается" };
   }
   if (file.size > MAX_FILE_SIZE) {

@@ -60,6 +60,18 @@ test("distinguishes timeout, invalid file, and malformed response errors", async
   assert.match(getSellerResponseUserMessage(new Error("Некорректный ответ AI")), /не удалось распознать/i);
 });
 
+test("returns a client error for malformed seller-response multipart data", async () => {
+  const { POST } = await import("../app/api/seller-response/route.ts");
+  const response = await POST(new Request("http://localhost/api/seller-response", {
+    method: "POST",
+    headers: { "content-type": "multipart/form-data" },
+    body: "invalid multipart body",
+  }));
+  assert.equal(response.status, 400);
+  const payload = await response.json() as { error?: string };
+  assert.match(payload.error ?? "", /некорректные данные/i);
+});
+
 test("accepts supported evidence and rejects unsafe uploads", async () => {
   const workflow = await import("../lib/workflow.ts");
   assert.equal(typeof workflow.validateUpload, "function");
@@ -81,6 +93,10 @@ test("accepts supported evidence and rejects unsafe uploads", async () => {
   assert.deepEqual(
     validateUpload({ name: "large.pdf", type: "application/pdf", size: 10 * 1024 * 1024 + 1 }),
     { ok: false, error: "Файл больше 10 МБ" },
+  );
+  assert.deepEqual(
+    validateUpload({ name: "scan.PNG", type: "", size: 1024 }),
+    { ok: true },
   );
 });
 

@@ -37,7 +37,12 @@ export async function POST(request: Request) {
         });
       }
     } else if (contentType.includes("multipart/form-data")) {
-      const formData = await request.formData();
+      let formData: FormData;
+      try {
+        formData = await request.formData();
+      } catch {
+        return Response.json({ error: "Некорректные данные ответа продавца" }, { status: 400 });
+      }
       const file = formData.get("file");
       if (!(file instanceof File)) return Response.json({ error: "Добавьте ответ продавца" }, { status: 400 });
       const validation = normalizeSellerResponseFile(file);
