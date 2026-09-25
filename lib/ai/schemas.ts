@@ -4,8 +4,9 @@ const nullableText = z.string().trim().min(1).nullable();
 const sourceUrl = z.string().url().refine(
   (value) => {
     try {
-      const hostname = new URL(value).hostname;
-      return hostname === "adilet.zan.kz" || hostname === "law.gov.kz" || hostname === "gov.kz" || hostname.endsWith(".gov.kz");
+      const parsed = new URL(value);
+      const hostname = parsed.hostname;
+      return parsed.protocol === "https:" && (hostname === "adilet.zan.kz" || hostname === "law.gov.kz" || hostname === "gov.kz" || hostname.endsWith(".gov.kz"));
     } catch {
       return false;
     }
@@ -125,7 +126,7 @@ export const OfficialActionPlanSchema = z.object({
   channels: z.array(z.object({
     type: z.enum(["eotinish", "etutynushy", "written"]),
     label: z.string().trim().min(1),
-    url: z.string().url().nullable(),
+    url: z.enum(["https://eotinish.kz", "https://eotinish.gov.kz", "https://e-tutynushy.kz"]).nullable(),
     sourceUrl,
   })),
   deadline: z.object({
@@ -144,6 +145,12 @@ export const OfficialActionPlanSchema = z.object({
   if (value.status !== "ready") return;
   if (value.steps.length === 0) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["steps"], message: "At least one action step is required" });
+  }
+  if (value.channels.length === 0) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["channels"], message: "A verified submission channel is required" });
+  }
+  if (value.appealText === null) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["appealText"], message: "An appeal draft is required" });
   }
   if (value.authority.sourceUrl === null) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["authority", "sourceUrl"], message: "An official authority source is required" });
@@ -283,7 +290,7 @@ export const sellerResponseJsonSchema = {
 
 const officialSourceUrlJson = {
   type: "string",
-  pattern: "^https?://(?:adilet\\.zan\\.kz|law\\.gov\\.kz|(?:[a-zA-Z0-9-]+\\.)*gov\\.kz)(?:[:/?#]|$)",
+  pattern: "^https://(?:adilet\\.zan\\.kz|law\\.gov\\.kz|(?:[a-zA-Z0-9-]+\\.)*gov\\.kz)(?:[:/?#]|$)",
 };
 
 export const officialActionPlanJsonSchema = {

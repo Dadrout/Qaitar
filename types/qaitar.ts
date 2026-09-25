@@ -85,11 +85,19 @@ export type SellerResponseInput =
   | { mode: "text"; text: string; submittedAt: string }
   | { mode: "no_response"; claimSentAt: string; submittedAt: string };
 
+export type OfficialActionPlanStatus = "ready" | "manual_verification_required";
+export type OfficialSubmissionChannel = {
+  type: "eotinish" | "etutynushy" | "written";
+  label: string;
+  url: string | null;
+  sourceUrl: string;
+};
+
 export type OfficialActionPlan = {
-  status: "ready" | "manual_verification_required";
+  status: OfficialActionPlanStatus;
   title: string;
   authority: { name: string | null; reason: string; sourceUrl: string | null };
-  channels: Array<{ type: "eotinish" | "etutynushy" | "written"; label: string; url: string | null; sourceUrl: string }>;
+  channels: OfficialSubmissionChannel[];
   deadline: { label: string; date: string | null; explanation: string; sourceUrl: string | null };
   steps: string[];
   requiredAttachments: string[];

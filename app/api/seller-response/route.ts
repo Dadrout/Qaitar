@@ -6,6 +6,7 @@ import { CaseAnalysisSchema } from "../../../lib/ai/schemas.ts";
 import { getDemoSellerResponse } from "../../../lib/demo/scenario.ts";
 import { normalizeLocale } from "../../../lib/i18n/index.ts";
 import { retrieveLegalChunks } from "../../../lib/legal/retrieve.ts";
+import { buildOfficialActionPlan } from "../../../lib/official-action-plan.ts";
 import { buildNoResponseAnalysis, hasSellerResponseDeadlineElapsed, normalizeSellerResponseFile, parseSellerResponseJson } from "../../../lib/seller-response-input.ts";
 import { z } from "zod";
 
@@ -68,28 +69,30 @@ export async function POST(request: Request) {
     }
 
     if (!responseAnalysis.requiresLegalReview || !caseData) {
-      return Response.json({ responseAnalysis, recommendation: null, demo });
+      return Response.json({ responseAnalysis, recommendation: null, officialActionPlan: null, demo });
     }
 
     if (demo) {
+      const recommendation = {
+        status: "legal_basis_found" as const,
+        caseType: "defective_product" as const,
+        title: locale === "kk" ? "Ресми өтініш дайындаңыз" : locale === "en" ? "Prepare an official appeal" : "Подготовьте официальное обращение",
+        summary: locale === "kk" ? "Сатушының бас тартуы істі аяқтамайды. Жауапты сақтап, тұтынушылар құқығын қорғау органына өтінішке тіркеңіз." : locale === "en" ? "The seller's refusal does not end the case. Save the response and attach it to an appeal to the consumer protection authority." : "Отказ продавца не завершает дело. Сохраните ответ и приложите его к обращению в орган защиты прав потребителей.",
+        reasoning: locale === "kk" ? "Жазбаша шағым жіберілді, сатушы бас тартты. Ресми дереккөздер келесі өтініш кезеңін қарастырады." : locale === "en" ? "The written claim was sent and the seller refused. Official sources describe a further appeal step." : "Письменная претензия уже направлена, и продавец отказал. Официальные источники предусматривают следующий этап обращения.",
+        recommendedAction: "prepare_official_appeal" as const,
+        legalBasis: [{
+          lawName: "Закон Республики Казахстан «О защите прав потребителей»",
+          article: "42-4, 42-5",
+          explanation: locale === "kk" ? "Жазбаша бас тартудан кейін немесе 10 күнтізбелік күн ішінде жауап болмаса, тұтынушы уәкілетті мемлекеттік органға жүгіне алады." : locale === "en" ? "After a written refusal or no reply within 10 calendar days, the consumer may contact the authorized state body." : "После письменного отказа или отсутствия ответа в течение 10 календарных дней потребитель вправе обратиться в уполномоченный государственный орган.",
+          sourceUrl: "https://adilet.zan.kz/rus/docs/Z100000274_",
+        }],
+        missingInformation: [],
+        confidence: "high" as const,
+      };
       return Response.json({
         responseAnalysis,
-        recommendation: {
-          status: "legal_basis_found",
-          caseType: "defective_product",
-          title: locale === "kk" ? "Ресми өтініш дайындаңыз" : locale === "en" ? "Prepare an official appeal" : "Подготовьте официальное обращение",
-          summary: locale === "kk" ? "Сатушының бас тартуы істі аяқтамайды. Жауапты сақтап, тұтынушылар құқығын қорғау органына өтінішке тіркеңіз." : locale === "en" ? "The seller's refusal does not end the case. Save the response and attach it to an appeal to the consumer protection authority." : "Отказ продавца не завершает дело. Сохраните ответ и приложите его к обращению в орган защиты прав потребителей.",
-          reasoning: locale === "kk" ? "Жазбаша шағым жіберілді, сатушы бас тартты. Ресми дереккөздер келесі өтініш кезеңін қарастырады." : locale === "en" ? "The written claim was sent and the seller refused. Official sources describe a further appeal step." : "Письменная претензия уже направлена, и продавец отказал. Официальные источники предусматривают следующий этап обращения.",
-          recommendedAction: "prepare_official_appeal",
-          legalBasis: [{
-            lawName: "Закон Республики Казахстан «О защите прав потребителей»",
-            article: "42-4, 42-5",
-            explanation: locale === "kk" ? "Жазбаша бас тартудан кейін немесе 10 күнтізбелік күн ішінде жауап болмаса, тұтынушы уәкілетті мемлекеттік органға жүгіне алады." : locale === "en" ? "After a written refusal or no reply within 10 calendar days, the consumer may contact the authorized state body." : "После письменного отказа или отсутствия ответа в течение 10 календарных дней потребитель вправе обратиться в уполномоченный государственный орган.",
-            sourceUrl: "https://adilet.zan.kz/rus/docs/Z100000274_",
-          }],
-          missingInformation: [],
-          confidence: "high",
-        },
+        recommendation,
+        officialActionPlan: buildOfficialActionPlan({ caseData, responseAnalysis, recommendation, chunks: [], locale, today: new Date() }),
         demo: true,
       });
     }
@@ -101,7 +104,10 @@ export async function POST(request: Request) {
     const recommendation = chunks.length
       ? await reasonFromLegalChunks(enrichedCase, chunks, locale)
       : noReliableLegalBasis(enrichedCase.caseType, locale);
-    return Response.json({ responseAnalysis, recommendation, demo: false });
+    const officialActionPlan = responseAnalysis.responseType === "rejected" || responseAnalysis.responseType === "no_response"
+      ? buildOfficialActionPlan({ caseData, responseAnalysis, recommendation, chunks, locale, today: new Date() })
+      : null;
+    return Response.json({ responseAnalysis, recommendation, officialActionPlan, demo: false });
   } catch (error) {
     console.error("Seller response analysis failed", error);
     if (error instanceof z.ZodError || error instanceof SyntaxError) {

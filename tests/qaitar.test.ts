@@ -2,6 +2,72 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { CaseAnalysis } from "../types/qaitar.ts";
 
+test("builds a complete official plan only from allowed source chunks", async () => {
+  const { buildOfficialActionPlan } = await import("../lib/official-action-plan.ts");
+  const { caseAnalysisFixture, rejectedResponseFixture } = await import("./fixtures.ts");
+  const lawUrl = "https://adilet.zan.kz/rus/docs/Z100000274_";
+  const guideUrl = "https://www.gov.kz/situations/464/intro?lang=ru";
+  const chunks = [
+    { id: "42-4", lawName: "Закон РК «О защите прав потребителей»", article: "42-4", section: "Ответ продавца", text: "При отказе или отсутствии ответа в течение десяти календарных дней потребитель вправе обратиться в уполномоченный орган.", language: "ru", sourceUrl: lawUrl },
+    { id: "42-5", lawName: "Закон РК «О защите прав потребителей»", article: "42-5", section: "Обращение в государственные органы", text: "Обращение подается не позднее двух месяцев с претензией, ответом продавца и документами по покупке.", language: "ru", sourceUrl: lawUrl },
+    { id: "eotinish", lawName: "Официальное разъяснение", article: "Порядок обращения", section: "Канал подачи", text: "Обращение в Департамент торговли и защиты прав потребителей можно подать через eOtinish.", language: "ru", sourceUrl: guideUrl },
+  ];
+  const recommendation = {
+    status: "legal_basis_found", caseType: "defective_product",
+    title: "Подготовьте официальное обращение", summary: "Отказ можно обжаловать.",
+    reasoning: "Продавец письменно отказал после претензии.", recommendedAction: "prepare_official_appeal",
+    legalBasis: [
+      { lawName: "Закон РК «О защите прав потребителей»", article: "42-4, 42-5", explanation: "Разрешает обратиться в уполномоченный орган.", sourceUrl: lawUrl },
+      { lawName: "Официальное разъяснение", article: "Порядок обращения", explanation: "Подтверждает подачу через eOtinish.", sourceUrl: guideUrl },
+    ], missingInformation: [], confidence: "high",
+  } as import("../types/qaitar.ts").LegalRecommendation;
+  const plan = buildOfficialActionPlan({ caseData: caseAnalysisFixture, responseAnalysis: rejectedResponseFixture, recommendation, chunks, locale: "ru", today: new Date("2026-09-25T00:00:00.000Z") });
+  assert.equal(plan.status, "ready");
+  assert.match(plan.authority.name ?? "", /Департамент торговли и защиты прав потребителей/);
+  assert.equal(plan.channels[0].type, "eotinish");
+  assert.ok(plan.requiredAttachments.includes("Копия претензии продавцу"));
+  assert.ok(plan.steps.length >= 4);
+  assert.match(plan.appealText ?? "", /прошу рассмотреть нарушение моих прав/i);
+  assert.equal(plan.deadline.date, null);
+  assert.match(plan.deadline.label, /двух месяцев/i);
+});
+
+test("falls back when an official procedure has no retrieved source", async () => {
+  const { buildOfficialActionPlan } = await import("../lib/official-action-plan.ts");
+  const { caseAnalysisFixture, rejectedResponseFixture } = await import("./fixtures.ts");
+  const plan = buildOfficialActionPlan({ caseData: caseAnalysisFixture, responseAnalysis: rejectedResponseFixture, recommendation: {
+    status: "legal_basis_found", caseType: "defective_product", title: "Обращение", summary: "Следующий шаг", reasoning: "Продавец отказал.", recommendedAction: "prepare_official_appeal", legalBasis: [], missingInformation: [], confidence: "low",
+  }, chunks: [], locale: "ru", today: new Date("2026-09-25T00:00:00.000Z") });
+  assert.equal(plan.status, "manual_verification_required");
+  assert.equal(plan.channels.length, 0);
+  assert.equal(plan.appealText, null);
+});
+
+test("drops a procedure URL that was not retrieved, including non-official domains", async () => {
+  const { buildOfficialActionPlan } = await import("../lib/official-action-plan.ts");
+  const { caseAnalysisFixture, rejectedResponseFixture } = await import("./fixtures.ts");
+  const plan = buildOfficialActionPlan({ caseData: caseAnalysisFixture, responseAnalysis: rejectedResponseFixture, recommendation: {
+    status: "legal_basis_found", caseType: "defective_product", title: "Обращение", summary: "Следующий шаг", reasoning: "Продавец отказал.", recommendedAction: "prepare_official_appeal", legalBasis: [{ lawName: "Unknown", article: "1", explanation: "Unsafe", sourceUrl: "https://example.com" }], missingInformation: [], confidence: "high",
+  }, chunks: [], locale: "ru", today: new Date("2026-09-25T00:00:00.000Z") });
+  assert.equal(plan.status, "manual_verification_required");
+  assert.equal(plan.legalBasis.length, 0);
+});
+
+test("seller-response route returns manual verification when a demo refusal has no retrieved procedure", async () => {
+  const { POST } = await import("../app/api/seller-response/route.ts");
+  const { caseAnalysisFixture } = await import("./fixtures.ts");
+  const form = new FormData();
+  form.set("file", new File(["demo refusal"], "seller-response.pdf", { type: "application/pdf" }));
+  form.set("demo", "true");
+  form.set("analysis", JSON.stringify(caseAnalysisFixture));
+  const response = await POST(new Request("http://localhost/api/seller-response", { method: "POST", body: form }));
+  const payload = await response.json() as { officialActionPlan?: { status: string; legalBasis: unknown[]; channels: unknown[] } };
+  assert.equal(response.status, 200);
+  assert.equal(payload.officialActionPlan?.status, "manual_verification_required");
+  assert.deepEqual(payload.officialActionPlan?.legalBasis, []);
+  assert.deepEqual(payload.officialActionPlan?.channels, []);
+});
+
 test("normalizes a response file MIME type from its extension", async () => {
   const { normalizeSellerResponseFile } = await import("../lib/seller-response-input.ts");
   assert.deepEqual(normalizeSellerResponseFile({ name: "ANSWER.PDF", type: "", size: 100 }), {
@@ -184,6 +250,8 @@ test("requires a step and official sources for ready plans", async () => {
   assert.equal(OfficialActionPlanSchema.safeParse({ ...readyPlan, channels: [{ ...readyPlan.channels[0], sourceUrl: "https://example.com" }] }).success, false);
   assert.equal(OfficialActionPlanSchema.safeParse({ ...readyPlan, authority: { ...readyPlan.authority, sourceUrl: null } }).success, false);
   assert.equal(OfficialActionPlanSchema.safeParse({ ...readyPlan, deadline: { ...readyPlan.deadline, sourceUrl: null } }).success, false);
+  assert.equal(OfficialActionPlanSchema.safeParse({ ...readyPlan, channels: [] }).success, false);
+  assert.equal(OfficialActionPlanSchema.safeParse({ ...readyPlan, appealText: null }).success, false);
 });
 
 test("allows unsourced authority and deadline only when manual verification is required", async () => {
