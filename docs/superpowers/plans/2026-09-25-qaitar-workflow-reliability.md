@@ -366,8 +366,8 @@ test("normalizes a response file MIME type from its extension", async () => {
 
 test("treats exactly ten Kazakhstan calendar days as elapsed", async () => {
   const { hasSellerResponseDeadlineElapsed } = await import("../lib/seller-response-input.ts");
-  assert.equal(hasSellerResponseDeadlineElapsed("2026-09-01", new Date("2026-09-10T17:59:59.000Z")), false);
-  assert.equal(hasSellerResponseDeadlineElapsed("2026-09-01", new Date("2026-09-10T18:00:00.000Z")), true);
+  assert.equal(hasSellerResponseDeadlineElapsed("2026-09-01", new Date("2026-09-10T18:59:59.000Z")), false);
+  assert.equal(hasSellerResponseDeadlineElapsed("2026-09-01", new Date("2026-09-10T19:00:00.000Z")), true);
 });
 
 test("parses pasted response text without manufacturing a file", async () => {
@@ -639,7 +639,7 @@ Replace the single “Добавить ответ продавца” jump with 
 
 - [ ] **Step 4: Implement three response modes**
 
-In `SellerResponse`, maintain a discriminated local draft:
+Keep a controlled discriminated draft in `QaitarApp` and pass it to `SellerResponse` through `draft` and `onDraftChange` props:
 
 ```ts
 type SellerResponseDraft =
@@ -652,7 +652,7 @@ Render accessible segmented buttons, preserve each mode's current value while sw
 
 - [ ] **Step 5: Add one in-flight request guard and retry preservation**
 
-Move request construction into a pure helper. In `QaitarApp`, ignore submission when `busy === "response"`. Save the previous state, show `SELLER_RESPONSE_UPLOADED` while analyzing, and on failure restore `WAITING_FOR_RESPONSE` while keeping the draft inside `SellerResponse`. Do not clear the draft until a successful payload is committed.
+Move request construction into a pure helper. In `QaitarApp`, ignore submission when `busy === "response"`. Save the previous state, show `SELLER_RESPONSE_UPLOADED` while analyzing, and on failure restore `WAITING_FOR_RESPONSE`; the controlled draft remains in `QaitarApp` even while the busy screen temporarily unmounts `SellerResponse`. Clear it only after a successful payload is committed.
 
 - [ ] **Step 6: Commit the successful response atomically**
 
