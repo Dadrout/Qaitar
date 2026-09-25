@@ -370,6 +370,59 @@ test("restores serializable case data without stale browser preview URLs", async
   assert.equal(restoreCaseSnapshot("not-json"), null);
 });
 
+test("migrates one legacy case into a versioned local collection", async () => {
+  const history = await import("../lib/case-history.ts");
+  const legacy = JSON.stringify({
+    id: "case-1", state: "WAITING_FOR_RESPONSE", problemType: "defective_product",
+    evidence: [{ id: "file-1", name: "receipt.jpg", size: 10, mimeType: "image/jpeg", detectedType: "Чек", status: "ready", previewUrl: "blob:stale" }],
+    analysis: null, recommendation: null, claim: "claim",
+    sellerResponse: null, updatedAt: "2026-09-24T10:00:00.000Z",
+  });
+
+  const result = history.restoreCaseCollection("", legacy);
+  assert.equal(result.version, 2);
+  assert.equal(result.activeCaseId, "case-1");
+  assert.equal(result.cases.length, 1);
+  assert.equal(result.cases[0].problemDescription, "");
+  assert.equal(result.cases[0].claimSentAt, null);
+  assert.equal(result.cases[0].sellerResponseInput, null);
+  assert.equal(result.cases[0].officialActionPlan, null);
+  assert.equal(result.cases[0].evidence[0].previewUrl, undefined);
+});
+
+test("upserts cases without duplicating ids and removes only the selected case", async () => {
+  const history = await import("../lib/case-history.ts");
+  const first = history.upsertCase({ version: 2, activeCaseId: null, cases: [] }, history.createEmptyCase("case-1"));
+  const second = history.upsertCase(first, { ...history.createEmptyCase("case-2"), updatedAt: "2026-09-24T10:00:00.000Z" });
+  const updated = history.upsertCase(second, { ...first.cases[0], updatedAt: "2026-09-25T10:00:00.000Z" });
+
+  assert.equal(updated.cases.length, 2);
+  assert.deepEqual(updated.cases.map((item) => item.id), ["case-1", "case-2"]);
+  assert.equal(updated.activeCaseId, "case-1");
+  assert.deepEqual(history.removeCase(updated, "missing"), updated);
+  assert.deepEqual(history.removeCase(updated, "case-2").cases.map((item) => item.id), ["case-1"]);
+  const removedActive = history.removeCase(updated, "case-1");
+  assert.deepEqual(removedActive.cases.map((item) => item.id), ["case-2"]);
+  assert.equal(removedActive.activeCaseId, "case-2");
+});
+
+test("malformed local case collections return empty data and keep the newest valid duplicate", async () => {
+  const history = await import("../lib/case-history.ts");
+  assert.deepEqual(history.restoreCaseCollection("{bad json", ""), { version: 2, activeCaseId: null, cases: [] });
+  assert.deepEqual(history.restoreCaseCollection("", "{bad json"), { version: 2, activeCaseId: null, cases: [] });
+
+  const older = { ...history.createEmptyCase("case-1"), updatedAt: "2026-09-23T10:00:00.000Z" };
+  const newer = { ...older, claim: "latest claim", updatedAt: "2026-09-25T10:00:00.000Z" };
+  const restored = history.restoreCaseCollection(JSON.stringify({
+    version: 2,
+    activeCaseId: "missing",
+    cases: [older, { ...older, id: "invalid", state: "UNKNOWN" }, newer, { ...older, id: "case-2", updatedAt: "2026-09-24T10:00:00.000Z" }],
+  }), "");
+  assert.deepEqual(restored.cases.map((item) => item.id), ["case-1", "case-2"]);
+  assert.equal(restored.cases[0].claim, "latest claim");
+  assert.equal(restored.activeCaseId, "case-1");
+});
+
 test("paginates claim text without dropping paragraphs", async () => {
   const pdf = await import("../lib/pdf.ts");
   assert.equal(typeof pdf.paginateClaimText, "function");
