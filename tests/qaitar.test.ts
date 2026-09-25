@@ -412,6 +412,51 @@ test("reviewing a normal case issue preserves its document-based summary", async
   assert.equal(edited.analysis.summary, initial.summary);
 });
 
+test("clearing a reviewed issue uses the localized category fact and keeps legal case type", async () => {
+  const { applyReviewIssueEdit } = await import("../lib/case-review.ts");
+  const { getDemoCaseAnalysis } = await import("../lib/demo/scenario.ts");
+  const { CaseAnalysisSchema } = await import("../lib/ai/schemas.ts");
+  const edited = applyReviewIssueEdit(getDemoCaseAnalysis("kk"), "", "kk", true);
+
+  assert.equal(edited.problemDescription, "");
+  assert.equal(edited.analysis.issue, "Тауар ақаулы");
+  assert.equal(edited.analysis.summary, "Тауар ақаулы");
+  assert.equal(edited.analysis.facts.find((fact) => fact.key === "issue")?.value, "Тауар ақаулы");
+  assert.doesNotThrow(() => CaseAnalysisSchema.parse(edited.analysis));
+
+  const legalRoute = await import("../app/api/legal-recommendation/route.ts");
+  const response = await legalRoute.POST(new Request("http://localhost/api/legal-recommendation", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ analysis: edited.analysis, demo: true, locale: "kk" }),
+  }));
+  const payload = await response.json() as { recommendation: { caseType: string; status: string } };
+  assert.equal(payload.recommendation.caseType, "defective_product");
+  assert.equal(payload.recommendation.status, "no_reliable_basis_found");
+});
+
+test("a restored demo retains provenance for a coherent review issue edit", async () => {
+  const { createEmptyCase } = await import("../lib/case-history.ts");
+  const { serializeCaseSnapshot, restoreCaseSnapshot } = await import("../lib/client-case.ts");
+  const { getDemoCaseAnalysis } = await import("../lib/demo/scenario.ts");
+  const { applyReviewIssueEdit } = await import("../lib/case-review.ts");
+  const saved = serializeCaseSnapshot({
+    ...createEmptyCase("demo-case"),
+    state: "DOCUMENTS_ANALYZED",
+    demo: true,
+    analysis: getDemoCaseAnalysis("ru"),
+  });
+  const restored = restoreCaseSnapshot(saved);
+  assert.equal(restored?.demo, true);
+  assert.ok(restored?.analysis);
+
+  const description = "Продавец дважды списал оплату";
+  const edited = applyReviewIssueEdit(restored.analysis, description, "ru", restored.demo);
+  assert.equal(edited.analysis.summary, description);
+  assert.equal(edited.analysis.issue, description);
+  assert.equal(edited.problemDescription, description);
+});
+
 test("returns a safe legal fallback with no invented provisions", async () => {
   const legal = await import("../lib/ai/legal-reasoning.ts");
   assert.equal(typeof legal.noReliableLegalBasis, "function");

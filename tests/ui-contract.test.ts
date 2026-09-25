@@ -52,6 +52,7 @@ test("provides a localized multiline problem field and explains required text fo
   assert.match(copy, /descriptionLabel: "Опишите проблему"/);
   assert.match(app, /problemDescription=\{caseData\.problemDescription\}/);
   assert.match(app, /if \(key === "issue"\)[\s\S]*applyReviewIssueEdit/);
+  assert.match(app, /const demo = caseData\.demo/);
 });
 
 test("labels AI work and fact confirmation as explicit workflow stages", () => {

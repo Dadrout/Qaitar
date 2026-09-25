@@ -114,6 +114,7 @@ export type QaitarCase = {
   state: CaseState;
   problemType: CaseAnalysis["caseType"] | null;
   problemDescription: string;
+  demo: boolean;
   evidence: EvidenceItem[];
   analysis: CaseAnalysis | null;
   recommendation: LegalRecommendation | null;

@@ -31,6 +31,7 @@ const emptyCase = (): QaitarCase => ({
   state: "NEW_CASE",
   problemType: null,
   problemDescription: "",
+  demo: false,
   evidence: [],
   analysis: null,
   recommendation: null,
@@ -70,8 +71,8 @@ function QaitarAppContent() {
   const { locale, messages } = useLanguage();
   const [view, setView] = useState<View>("workflow");
   const [caseData, setCaseData] = useState<QaitarCase>(emptyCase);
+  const demo = caseData.demo;
   const [files, setFiles] = useState<File[]>([]);
-  const [demo, setDemo] = useState(false);
   const [busy, setBusy] = useState<BusyPhase>(null);
   const [error, setError] = useState<string | null>(null);
   const [responseOpen, setResponseOpen] = useState(false);
@@ -102,8 +103,8 @@ function QaitarAppContent() {
 
   function chooseFiles(nextFiles: File[]) {
     setFiles(nextFiles);
-    updateCase({ evidence: nextFiles.map((file) => ({ id: evidenceId(file), name: file.name, size: file.size, mimeType: file.type, detectedType: detectType(file.name, locale), status: "ready" })), state: nextFiles.length ? "FILES_UPLOADED" : "NEW_CASE" });
-    setDemo(false); setError(null);
+    updateCase({ demo: false, evidence: nextFiles.map((file) => ({ id: evidenceId(file), name: file.name, size: file.size, mimeType: file.type, detectedType: detectType(file.name, locale), status: "ready" })), state: nextFiles.length ? "FILES_UPLOADED" : "NEW_CASE" });
+    setError(null);
   }
 
   function addDemo() {
@@ -111,8 +112,8 @@ function QaitarAppContent() {
       new File(["Qaitar demo receipt"], "receipt.jpg", { type: "image/jpeg", lastModified: 1 }),
       new File(["Qaitar demo seller chat"], "seller-chat.png", { type: "image/png", lastModified: 2 }),
     ];
-    setFiles(demoFiles); setDemo(true); setError(null);
-    updateCase({ problemType: "defective_product", evidence: demoFiles.map((file) => ({ id: evidenceId(file), name: file.name, size: file.size, mimeType: file.type, detectedType: detectType(file.name, locale), status: "ready" })), state: "FILES_UPLOADED" });
+    setFiles(demoFiles); setError(null);
+    updateCase({ demo: true, problemType: "defective_product", evidence: demoFiles.map((file) => ({ id: evidenceId(file), name: file.name, size: file.size, mimeType: file.type, detectedType: detectType(file.name, locale), status: "ready" })), state: "FILES_UPLOADED" });
   }
 
   async function analyze() {
@@ -227,12 +228,12 @@ function QaitarAppContent() {
 
   function resetCase() {
     if (savedCaseExists && !window.confirm(messages.common.newCaseConfirm)) return;
-    setCaseData(emptyCase()); setFiles([]); setDemo(false); setResponseOpen(false); setError(null); setView("workflow"); window.localStorage.removeItem(STORAGE_KEY);
+    setCaseData(emptyCase()); setFiles([]); setResponseOpen(false); setError(null); setView("workflow"); window.localStorage.removeItem(STORAGE_KEY);
   }
 
   return (
     <AppShell view={view} state={caseData.state} onView={setView} onNew={resetCase}>
-      {busy ? <AnalysisProgress phase={busy} /> : view === "cases" ? <CasesView caseData={caseData} onContinue={() => setView("workflow")} onNew={resetCase} /> : view === "document" ? <DocumentWorkspace onAddToCase={(file) => { setCaseData(emptyCase()); setFiles([file]); setDemo(false); setView("workflow"); setCaseData((current) => ({ ...current, state: "FILES_UPLOADED", evidence: [{ id: evidenceId(file), name: file.name, size: file.size, mimeType: file.type, detectedType: detectType(file.name, locale), status: "ready" }] })); }} /> : (
+      {busy ? <AnalysisProgress phase={busy} /> : view === "cases" ? <CasesView caseData={caseData} onContinue={() => setView("workflow")} onNew={resetCase} /> : view === "document" ? <DocumentWorkspace onAddToCase={(file) => { setCaseData(emptyCase()); setFiles([file]); setView("workflow"); setCaseData((current) => ({ ...current, state: "FILES_UPLOADED", evidence: [{ id: evidenceId(file), name: file.name, size: file.size, mimeType: file.type, detectedType: detectType(file.name, locale), status: "ready" }] })); }} /> : (
         <>
           {error && caseData.state !== "NEW_CASE" && caseData.state !== "FILES_UPLOADED" && <div className="mx-auto mt-5 max-w-4xl px-4"><p role="alert" className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</p></div>}
           {(caseData.state === "NEW_CASE" || caseData.state === "FILES_UPLOADED") && <NewCase files={files} evidence={evidence} problemType={caseData.problemType} problemDescription={caseData.problemDescription} error={error} onFiles={chooseFiles} onRemove={(id) => chooseFiles(files.filter((file) => evidenceId(file) !== id))} onProblem={(problemType) => updateCase({ problemType })} onProblemDescription={(problemDescription) => updateCase({ problemDescription })} onAnalyze={analyze} onDemo={addDemo} />}
