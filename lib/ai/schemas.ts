@@ -97,6 +97,23 @@ export const SellerResponseAnalysisSchema = z.object({
   requiresLegalReview: z.boolean(),
 });
 
+export const localeSchema = z.enum(["ru", "kk", "en"]);
+
+export const SellerResponseJsonInputSchema = z.discriminatedUnion("mode", [
+  z.object({
+    mode: z.literal("text"),
+    text: z.string().trim().min(3).max(12_000),
+    analysis: CaseAnalysisSchema,
+    locale: localeSchema,
+  }),
+  z.object({
+    mode: z.literal("no_response"),
+    claimSentAt: z.string().date(),
+    analysis: CaseAnalysisSchema,
+    locale: localeSchema,
+  }),
+]);
+
 export const OfficialActionPlanSchema = z.object({
   status: z.enum(["ready", "manual_verification_required"]),
   title: z.string().trim().min(1),

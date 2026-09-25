@@ -2,6 +2,64 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { CaseAnalysis } from "../types/qaitar.ts";
 
+test("normalizes a response file MIME type from its extension", async () => {
+  const { normalizeSellerResponseFile } = await import("../lib/seller-response-input.ts");
+  assert.deepEqual(normalizeSellerResponseFile({ name: "ANSWER.PDF", type: "", size: 100 }), {
+    ok: true, mimeType: "application/pdf",
+  });
+  assert.deepEqual(normalizeSellerResponseFile({ name: "answer.svg", type: "image/svg+xml", size: 100 }), {
+    ok: false, error: "Этот формат не поддерживается",
+  });
+});
+
+test("treats exactly ten Kazakhstan calendar days as elapsed", async () => {
+  const { hasSellerResponseDeadlineElapsed } = await import("../lib/seller-response-input.ts");
+  assert.equal(hasSellerResponseDeadlineElapsed("2026-09-01", new Date("2026-09-10T18:59:59.000Z")), false);
+  assert.equal(hasSellerResponseDeadlineElapsed("2026-09-01", new Date("2026-09-10T19:00:00.000Z")), true);
+  assert.equal(hasSellerResponseDeadlineElapsed("2026-02-29", new Date("2026-03-20T00:00:00.000Z")), false);
+});
+
+test("parses pasted response text without manufacturing a file", async () => {
+  const { parseSellerResponseJson } = await import("../lib/seller-response-input.ts");
+  const { caseAnalysisFixture } = await import("./fixtures.ts");
+  const parsed = parseSellerResponseJson({
+    mode: "text",
+    text: "Продавец отказал в возврате и сослался на внутренние правила.",
+    analysis: caseAnalysisFixture,
+    locale: "ru",
+  });
+  assert.equal(parsed.mode, "text");
+  assert.match(parsed.text, /внутренние правила/);
+  assert.equal("file" in parsed, false);
+});
+
+test("creates a legal-review response only after an elapsed no-response deadline", async () => {
+  const { buildNoResponseAnalysis, hasSellerResponseDeadlineElapsed } = await import("../lib/seller-response-input.ts");
+  assert.equal(hasSellerResponseDeadlineElapsed("2026-09-01", new Date("2026-09-05T12:00:00.000Z")), false);
+  assert.deepEqual(buildNoResponseAnalysis("ru"), {
+    responseType: "no_response",
+    sellerReason: null,
+    summary: "Продавец не ответил на письменную претензию в установленный срок.",
+    newFacts: [],
+    requiresLegalReview: true,
+  });
+});
+
+test("rejects a no-response request before the Kazakhstan deadline", async () => {
+  const { parseSellerResponseJson } = await import("../lib/seller-response-input.ts");
+  const { caseAnalysisFixture } = await import("./fixtures.ts");
+  const parsed = parseSellerResponseJson({ mode: "no_response", claimSentAt: "2026-09-01", analysis: caseAnalysisFixture, locale: "ru" });
+  assert.equal(parsed.mode, "no_response");
+  assert.throws(() => parseSellerResponseJson({ mode: "no_response", claimSentAt: "2026-02-29", analysis: caseAnalysisFixture, locale: "ru" }));
+});
+
+test("distinguishes timeout, invalid file, and malformed response errors", async () => {
+  const { getSellerResponseUserMessage } = await import("../lib/ai/gemini.ts");
+  assert.match(getSellerResponseUserMessage(new DOMException("timeout", "AbortError")), /не успел обработать/i);
+  assert.match(getSellerResponseUserMessage(Object.assign(new Error("unsupported"), { code: "UNSUPPORTED_FILE" })), /формат файла/i);
+  assert.match(getSellerResponseUserMessage(new Error("Некорректный ответ AI")), /не удалось распознать/i);
+});
+
 test("accepts supported evidence and rejects unsafe uploads", async () => {
   const workflow = await import("../lib/workflow.ts");
   assert.equal(typeof workflow.validateUpload, "function");
