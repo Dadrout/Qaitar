@@ -6,8 +6,10 @@ import { ArrowRight, Camera, Check, FileCheck2, FileText, Image as ImageIcon, Me
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
+import { Textarea } from "../ui/textarea";
+import { useLanguage } from "./language-provider";
 import { ru } from "../../lib/i18n/ru.ts";
-import { selectUploadBatch } from "../../lib/workflow.ts";
+import { selectUploadBatch, validateProblemInput } from "../../lib/workflow.ts";
 import type { CaseAnalysis, EvidenceItem } from "../../types/qaitar.ts";
 
 type ProblemType = CaseAnalysis["caseType"];
@@ -18,27 +20,34 @@ export function NewCase({
   files,
   evidence,
   problemType,
+  problemDescription,
   error,
   onFiles,
   onRemove,
   onProblem,
+  onProblemDescription,
   onAnalyze,
   onDemo,
 }: {
   files: File[];
   evidence: EvidenceItem[];
   problemType: ProblemType | null;
+  problemDescription: string;
   error: string | null;
   onFiles: (files: File[]) => void;
   onRemove: (id: string) => void;
   onProblem: (type: ProblemType) => void;
+  onProblemDescription: (description: string) => void;
   onAnalyze: () => void;
   onDemo: () => void;
 }) {
+  const { messages } = useLanguage();
   const input = useRef<HTMLInputElement>(null);
   const camera = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const validation = validateProblemInput(problemType, problemDescription);
+  const validationMessage = problemType === "other" ? messages.newCase.descriptionRequired : messages.newCase.chooseProblem;
 
   function acceptFiles(incoming: File[]) {
     const selection = selectUploadBatch(files, incoming);
@@ -109,10 +118,20 @@ export function NewCase({
               );
             })}
           </div>
+          <div className="mt-5">
+            <div className="flex items-baseline justify-between gap-3">
+              <label htmlFor="problem-description" className="text-sm font-semibold">{messages.newCase.descriptionLabel}</label>
+              <span className="text-xs text-muted-foreground">{problemDescription.length} / 2 000</span>
+            </div>
+            <Textarea id="problem-description" value={problemDescription} onChange={(event) => onProblemDescription(event.target.value)} maxLength={2_000} rows={4} placeholder={messages.newCase.descriptionPlaceholder} aria-describedby="problem-description-hint problem-description-error" aria-invalid={!validation.ok && problemType === "other"} className="mt-2 min-h-28 rounded-xl" />
+            <p id="problem-description-hint" className="mt-2 text-xs leading-5 text-muted-foreground">{messages.newCase.descriptionHint}</p>
+            {!validation.ok && problemType === "other" && <p id="problem-description-error" role="alert" className="mt-2 text-sm text-destructive">{messages.newCase.descriptionRequired}</p>}
+          </div>
           {error && <p role="alert" className="mt-5 rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</p>}
           <div className="mt-6 border-t border-border pt-5">
             {files.length === 0 && <p className="mb-3 text-sm text-muted-foreground">Добавьте хотя бы один файл, чтобы начать разбор.</p>}
-            <Button disabled={files.length === 0} onClick={onAnalyze} size="lg" className="h-13 w-full rounded-xl px-7 text-[15px] shadow-[0_10px_24px_rgba(25,94,234,.20)] transition-transform duration-200 enabled:hover:-translate-y-0.5">{ru.newCase.action} <ArrowRight /></Button>
+            {files.length > 0 && !validation.ok && <p className="mb-3 text-sm text-destructive">{validationMessage}</p>}
+            <Button disabled={files.length === 0 || !validation.ok} onClick={onAnalyze} size="lg" className="h-13 w-full rounded-xl px-7 text-[15px] shadow-[0_10px_24px_rgba(25,94,234,.20)] transition-transform duration-200 enabled:hover:-translate-y-0.5">{ru.newCase.action} <ArrowRight /></Button>
           </div>
         </div>
 

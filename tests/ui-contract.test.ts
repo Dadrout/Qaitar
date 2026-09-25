@@ -40,6 +40,18 @@ test("makes the first screen evidence-first and explains the disabled action", (
   assert.match(screen, /aria-pressed=\{selected\}/);
 });
 
+test("provides a localized multiline problem field and explains required text for Other", () => {
+  const screen = readSource("components/qaitar/new-case.tsx");
+  const app = readSource("components/qaitar/qaitar-app.tsx");
+  const copy = readSource("lib/i18n/ru.ts");
+  assert.match(screen, /<Textarea[\s\S]*maxLength=\{2_000\}/);
+  assert.match(screen, /validateProblemInput\(problemType, problemDescription\)/);
+  assert.match(screen, /problemType === "other"[\s\S]*messages\.newCase\.descriptionRequired/);
+  assert.match(screen, /messages\.newCase\.descriptionLabel/);
+  assert.match(copy, /descriptionLabel: "Опишите проблему"/);
+  assert.match(app, /problemDescription=\{caseData\.problemDescription\}/);
+});
+
 test("labels AI work and fact confirmation as explicit workflow stages", () => {
   const progress = readSource("components/qaitar/analysis-progress.tsx");
   const review = readSource("components/qaitar/case-review.tsx");

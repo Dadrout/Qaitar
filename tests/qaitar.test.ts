@@ -272,6 +272,39 @@ test("parses provider JSON through the requested Zod schema", async () => {
   );
 });
 
+test("uses the user's exact description as the issue fact", async () => {
+  const { buildCase } = await import("../lib/ai/build-case.ts");
+  const { documentAnalysisFixture } = await import("./fixtures.ts");
+  const result = await buildCase([documentAnalysisFixture], {
+    problemType: "defective_product",
+    problemDescription: "Левый наушник отключается через пять минут",
+    locale: "ru",
+  });
+  assert.equal(result.issue, "Левый наушник отключается через пять минут");
+  assert.deepEqual(result.facts.find((fact) => fact.key === "issue"), {
+    key: "issue", label: "Проблема", value: "Левый наушник отключается через пять минут",
+    source: "user", confidence: "high",
+  });
+});
+
+test("uses the exact description in seeded demo analysis", async () => {
+  const route = await import("../app/api/analyze/route.ts");
+  const form = new FormData();
+  form.set("demo", "true");
+  form.set("problemType", "defective_product");
+  form.set("problemDescription", "  Левый наушник отключается через пять минут  ");
+  form.append("files", new File(["receipt"], "receipt.jpg", { type: "image/jpeg" }));
+  form.append("files", new File(["chat"], "seller-chat.png", { type: "image/png" }));
+
+  const response = await route.POST(new Request("http://localhost/api/analyze", {
+    method: "POST", body: form,
+  }));
+  const payload = await response.json() as { analysis: { issue: string; facts: Array<{ key: string; value: string }> } };
+  assert.equal(response.status, 200);
+  assert.equal(payload.analysis.issue, "Левый наушник отключается через пять минут");
+  assert.equal(payload.analysis.facts.find((fact) => fact.key === "issue")?.value, payload.analysis.issue);
+});
+
 test("returns a safe legal fallback with no invented provisions", async () => {
   const legal = await import("../lib/ai/legal-reasoning.ts");
   assert.equal(typeof legal.noReliableLegalBasis, "function");
