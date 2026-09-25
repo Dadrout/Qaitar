@@ -1,4 +1,4 @@
-import type { CaseState } from "../types/qaitar.ts";
+import type { CaseAnalysis, CaseState } from "../types/qaitar.ts";
 
 export const MAX_FILE_SIZE = 10 * 1024 * 1024;
 export const MAX_FILES = 6;
@@ -9,6 +9,14 @@ const ALLOWED_MIME_TYPES = new Set([
   "image/png",
   "image/webp",
 ]);
+
+export function validateProblemInput(problemType: CaseAnalysis["caseType"] | null, description: string) {
+  if (!problemType) return { ok: false as const, error: "Выберите тип проблемы" };
+  if (problemType === "other" && !description.trim()) {
+    return { ok: false as const, error: "Опишите проблему своими словами" };
+  }
+  return { ok: true as const };
+}
 
 const transitions: Record<CaseState, readonly CaseState[]> = {
   NEW_CASE: ["FILES_UPLOADED"],

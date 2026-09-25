@@ -58,6 +58,90 @@ test("allows only deterministic case-state transitions", async () => {
   assert.equal(canTransition("SELLER_REJECTED", "ESCALATION_READY"), true);
 });
 
+test("requires a written description only for the other problem category", async () => {
+  const { validateProblemInput } = await import("../lib/workflow.ts");
+  assert.deepEqual(validateProblemInput("defective_product", ""), { ok: true });
+  assert.deepEqual(validateProblemInput("other", ""), { ok: false, error: "Опишите проблему своими словами" });
+  assert.deepEqual(validateProblemInput("other", "  Продавец списал оплату дважды  "), { ok: true });
+  assert.deepEqual(validateProblemInput(null, "Описание есть"), { ok: false, error: "Выберите тип проблемы" });
+});
+
+test("permits only the seller-response workflow transitions", async () => {
+  const { canTransition } = await import("../lib/workflow.ts");
+  assert.equal(canTransition("WAITING_FOR_RESPONSE", "SELLER_RESPONSE_UPLOADED"), true);
+  assert.equal(canTransition("SELLER_RESPONSE_UPLOADED", "SELLER_REJECTED"), true);
+  assert.equal(canTransition("SELLER_RESPONSE_UPLOADED", "SELLER_ACCEPTED"), true);
+  assert.equal(canTransition("WAITING_FOR_RESPONSE", "ESCALATION_READY"), false);
+  assert.equal(canTransition("SELLER_REJECTED", "ESCALATION_READY"), true);
+});
+
+test("rejects an actionable official plan without verified sources", async () => {
+  const { OfficialActionPlanSchema } = await import("../lib/ai/schemas.ts");
+  assert.ok(OfficialActionPlanSchema);
+  const result = OfficialActionPlanSchema.safeParse({
+    status: "ready",
+    title: "Подайте обращение",
+    authority: { name: "Департамент", reason: "Рассматривает обращения", sourceUrl: "" },
+    channels: [],
+    deadline: { label: "До 1 ноября", date: "2026-11-01", explanation: "Срок обращения", sourceUrl: "" },
+    steps: [], requiredAttachments: [], legalBasis: [],
+    appealText: "Прошу рассмотреть нарушение моих прав.",
+    missingInformation: [], confidence: "high",
+  });
+  assert.equal(result.success, false);
+});
+
+test("requires a step and official sources for ready plans", async () => {
+  const { OfficialActionPlanSchema } = await import("../lib/ai/schemas.ts");
+  assert.ok(OfficialActionPlanSchema);
+  const readyPlan = {
+    status: "ready",
+    title: "Подайте обращение",
+    authority: { name: "Департамент", reason: "Рассматривает обращения", sourceUrl: "https://www.gov.kz/department" },
+    channels: [{ type: "eotinish", label: "eOtinish", url: "https://eotinish.kz", sourceUrl: "https://www.gov.kz/eotinish" }],
+    deadline: { label: "Срок обращения", date: "2026-11-01", explanation: "Указан ведомством", sourceUrl: "https://adilet.zan.kz/rus/docs/Z100000274_" },
+    steps: ["Подготовьте документы"], requiredAttachments: [], legalBasis: [],
+    appealText: "Прошу рассмотреть нарушение моих прав.",
+    missingInformation: [], confidence: "high",
+  };
+  assert.equal(OfficialActionPlanSchema.safeParse(readyPlan).success, true);
+  assert.equal(OfficialActionPlanSchema.safeParse({ ...readyPlan, steps: [] }).success, false);
+  assert.equal(OfficialActionPlanSchema.safeParse({ ...readyPlan, channels: [{ ...readyPlan.channels[0], sourceUrl: "https://example.com" }] }).success, false);
+  assert.equal(OfficialActionPlanSchema.safeParse({ ...readyPlan, authority: { ...readyPlan.authority, sourceUrl: null } }).success, false);
+  assert.equal(OfficialActionPlanSchema.safeParse({ ...readyPlan, deadline: { ...readyPlan.deadline, sourceUrl: null } }).success, false);
+});
+
+test("allows unsourced authority and deadline only when manual verification is required", async () => {
+  const { OfficialActionPlanSchema } = await import("../lib/ai/schemas.ts");
+  assert.ok(OfficialActionPlanSchema);
+  const result = OfficialActionPlanSchema.safeParse({
+    status: "manual_verification_required",
+    title: "Уточните ведомство и срок",
+    authority: { name: null, reason: "Требуется проверка", sourceUrl: null },
+    channels: [],
+    deadline: { label: "Уточните срок", date: null, explanation: "Срок не подтверждён", sourceUrl: null },
+    steps: [], requiredAttachments: [], legalBasis: [], appealText: null,
+    missingInformation: ["Компетентное ведомство"], confidence: "low",
+  });
+  assert.equal(result.success, true);
+});
+
+test("constrains every official plan source in the provider JSON schema", async () => {
+  const { officialActionPlanJsonSchema } = await import("../lib/ai/schemas.ts");
+  const authorityUrl = officialActionPlanJsonSchema.properties.authority.properties.sourceUrl.anyOf[0];
+  const deadlineUrl = officialActionPlanJsonSchema.properties.deadline.properties.sourceUrl.anyOf[0];
+  assert.ok("pattern" in authorityUrl);
+  assert.ok("pattern" in deadlineUrl);
+  const authoritySource = new RegExp(authorityUrl.pattern);
+  const channelSource = new RegExp(officialActionPlanJsonSchema.properties.channels.items.properties.sourceUrl.pattern);
+  const deadlineSource = new RegExp(deadlineUrl.pattern);
+  const legalSource = new RegExp(officialActionPlanJsonSchema.properties.legalBasis.items.properties.sourceUrl.pattern);
+  for (const pattern of [authoritySource, channelSource, deadlineSource, legalSource]) {
+    assert.equal(pattern.test("https://www.gov.kz/appeal"), true);
+    assert.equal(pattern.test("https://example.com/appeal"), false);
+  }
+});
+
 test("rejects an authoritative legal recommendation without an official source URL", async () => {
   const schemas = await import("../lib/ai/schemas.ts");
   assert.ok(schemas.LegalRecommendationSchema);
