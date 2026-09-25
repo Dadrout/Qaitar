@@ -1,4 +1,5 @@
-import { CASE_STATES, type CaseAnalysis, type EvidenceItem, type QaitarCase } from "../types/qaitar.ts";
+import { z } from "zod";
+import { CASE_STATES, type QaitarCase } from "../types/qaitar.ts";
 
 export type CaseCollection = {
   version: 2;
@@ -10,9 +11,98 @@ export const CASE_COLLECTION_KEY = "qaitar.cases.v2";
 export const LEGACY_CASE_KEY = "qaitar.current-case.v1";
 
 const emptyCollection = (): CaseCollection => ({ version: 2, activeCaseId: null, cases: [] });
-const problemTypes = new Set<CaseAnalysis["caseType"]>([
-  "defective_product", "return_product", "refund_delayed", "not_as_described", "other",
+const problemTypeSchema = z.enum(["defective_product", "return_product", "refund_delayed", "not_as_described", "other"]);
+const confidenceSchema = z.enum(["high", "medium", "low"]);
+const nullableStringSchema = z.string().nullable();
+const factSchema = z.object({
+  key: z.enum(["seller", "product", "amount", "purchaseDate", "issue", "sellerResponse"]),
+  label: z.string(),
+  value: z.string(),
+  source: z.enum(["document", "user", "inference"]),
+  confidence: confidenceSchema,
+});
+const legalBasisSchema = z.object({
+  lawName: z.string(),
+  article: z.string(),
+  explanation: z.string(),
+  sourceUrl: z.string(),
+});
+const analysisSchema = z.object({
+  caseType: problemTypeSchema,
+  summary: z.string(),
+  seller: z.object({ name: nullableStringSchema }),
+  product: z.object({ name: nullableStringSchema, price: z.number().nullable(), currency: z.string() }),
+  purchaseDate: nullableStringSchema,
+  issue: nullableStringSchema,
+  sellerResponse: nullableStringSchema,
+  facts: z.array(factSchema),
+  missingInformation: z.array(z.string()),
+  confidence: confidenceSchema,
+});
+const recommendationSchema = z.object({
+  status: z.enum(["legal_basis_found", "additional_information_required", "ambiguous", "no_reliable_basis_found"]),
+  caseType: problemTypeSchema,
+  title: z.string(),
+  summary: z.string(),
+  reasoning: z.string(),
+  recommendedAction: z.enum(["send_written_claim", "provide_document", "send_repeat_claim", "prepare_official_appeal", "manual_verification"]),
+  legalBasis: z.array(legalBasisSchema),
+  missingInformation: z.array(z.string()),
+  confidence: confidenceSchema,
+});
+const sellerResponseInputSchema = z.discriminatedUnion("mode", [
+  z.object({ mode: z.literal("file"), fileName: z.string(), mimeType: z.string(), size: z.number(), submittedAt: z.string() }),
+  z.object({ mode: z.literal("text"), text: z.string(), submittedAt: z.string() }),
+  z.object({ mode: z.literal("no_response"), claimSentAt: z.string(), submittedAt: z.string() }),
 ]);
+const sellerResponseSchema = z.object({
+  responseType: z.enum(["accepted", "rejected", "additional_information_requested", "unclear", "no_response"]),
+  sellerReason: nullableStringSchema,
+  summary: z.string(),
+  newFacts: z.array(factSchema),
+  requiresLegalReview: z.boolean(),
+});
+const officialActionPlanSchema = z.object({
+  status: z.enum(["ready", "manual_verification_required"]),
+  title: z.string(),
+  authority: z.object({ name: nullableStringSchema, reason: z.string(), sourceUrl: nullableStringSchema }),
+  channels: z.array(z.object({
+    type: z.enum(["eotinish", "etutynushy", "written"]),
+    label: z.string(),
+    url: nullableStringSchema,
+    sourceUrl: z.string(),
+  })),
+  deadline: z.object({ label: z.string(), date: nullableStringSchema, explanation: z.string(), sourceUrl: nullableStringSchema }),
+  steps: z.array(z.string()),
+  requiredAttachments: z.array(z.string()),
+  legalBasis: z.array(legalBasisSchema),
+  appealText: nullableStringSchema,
+  missingInformation: z.array(z.string()),
+  confidence: confidenceSchema,
+});
+const evidenceSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  size: z.number(),
+  mimeType: z.string(),
+  detectedType: z.string(),
+  status: z.enum(["ready", "processing", "processed", "error"]),
+});
+const storedCaseSchema = z.object({
+  id: z.string().refine((id) => id.trim().length > 0),
+  state: z.enum(CASE_STATES),
+  problemType: problemTypeSchema.nullable().default(null),
+  problemDescription: z.string().default(""),
+  evidence: z.array(evidenceSchema).default([]),
+  analysis: analysisSchema.nullable().default(null),
+  recommendation: recommendationSchema.nullable().default(null),
+  claim: nullableStringSchema.default(null),
+  claimSentAt: nullableStringSchema.default(null),
+  sellerResponseInput: sellerResponseInputSchema.nullable().default(null),
+  sellerResponse: sellerResponseSchema.nullable().default(null),
+  officialActionPlan: officialActionPlanSchema.nullable().default(null),
+  updatedAt: z.string().refine((timestamp) => Number.isFinite(Date.parse(timestamp))),
+});
 
 export function createEmptyCase(id = "draft"): QaitarCase {
   return {
@@ -87,33 +177,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function normalizeCase(value: unknown): QaitarCase | null {
-  if (!isRecord(value) || typeof value.id !== "string" || !value.id.trim()) return null;
-  if (!CASE_STATES.some((state) => state === value.state)) return null;
-  if (typeof value.updatedAt !== "string" || !Number.isFinite(Date.parse(value.updatedAt))) return null;
-
-  const defaults = createEmptyCase(value.id);
-  return {
-    ...defaults,
-    id: value.id,
-    state: value.state as QaitarCase["state"],
-    problemType: problemTypes.has(value.problemType as CaseAnalysis["caseType"])
-      ? value.problemType as CaseAnalysis["caseType"] : null,
-    problemDescription: typeof value.problemDescription === "string" ? value.problemDescription : "",
-    evidence: Array.isArray(value.evidence) ? value.evidence.filter(isRecord).map(normalizeEvidence) : [],
-    analysis: isRecord(value.analysis) ? value.analysis as QaitarCase["analysis"] : null,
-    recommendation: isRecord(value.recommendation) ? value.recommendation as QaitarCase["recommendation"] : null,
-    claim: typeof value.claim === "string" ? value.claim : null,
-    claimSentAt: typeof value.claimSentAt === "string" ? value.claimSentAt : null,
-    sellerResponseInput: isRecord(value.sellerResponseInput) ? value.sellerResponseInput as QaitarCase["sellerResponseInput"] : null,
-    sellerResponse: isRecord(value.sellerResponse) ? value.sellerResponse as QaitarCase["sellerResponse"] : null,
-    officialActionPlan: isRecord(value.officialActionPlan) ? value.officialActionPlan as QaitarCase["officialActionPlan"] : null,
-    updatedAt: value.updatedAt,
-  };
-}
-
-function normalizeEvidence(value: Record<string, unknown>): EvidenceItem {
-  const { previewUrl: _previewUrl, ...stored } = value;
-  return stored as EvidenceItem;
+  const parsed = storedCaseSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
 }
 
 function sortCases(cases: QaitarCase[]): QaitarCase[] {

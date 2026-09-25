@@ -423,6 +423,51 @@ test("malformed local case collections return empty data and keep the newest val
   assert.equal(restored.activeCaseId, "case-1");
 });
 
+test("rejects saved cases with incomplete nested data before returning them to the UI", async () => {
+  const history = await import("../lib/case-history.ts");
+  const base = { ...history.createEmptyCase("case-1"), updatedAt: "2026-09-24T10:00:00.000Z" };
+  const brokenCases = [
+    { ...base, analysis: {} },
+    { ...base, recommendation: { legalBasis: [] } },
+    { ...base, sellerResponseInput: { mode: "file" } },
+    { ...base, sellerResponse: { responseType: "rejected" } },
+    { ...base, officialActionPlan: { status: "ready" } },
+    { ...base, evidence: [{}] },
+  ];
+
+  for (const broken of brokenCases) {
+    const restored = history.restoreCaseCollection(JSON.stringify({ version: 2, activeCaseId: "case-1", cases: [broken] }), "");
+    assert.deepEqual(restored, { version: 2, activeCaseId: null, cases: [] });
+  }
+
+  const usable = {
+    ...base,
+    analysis: {
+      caseType: "defective_product", summary: "", seller: { name: null },
+      product: { name: null, price: null, currency: "KZT" }, purchaseDate: null,
+      issue: null, sellerResponse: null,
+      facts: [{ key: "issue", label: "Problem", value: "Broken", source: "user", confidence: "high" }],
+      missingInformation: [], confidence: "high",
+    },
+  };
+  const restoredUsable = history.restoreCaseCollection(JSON.stringify({ version: 2, activeCaseId: "case-1", cases: [usable] }), "");
+  assert.equal(restoredUsable.cases[0].analysis?.facts[0].value, "Broken");
+});
+
+test("keeps an older usable case when a newer duplicate has malformed nested data", async () => {
+  const history = await import("../lib/case-history.ts");
+  const older = { ...history.createEmptyCase("case-1"), claim: "saved claim", updatedAt: "2026-09-23T10:00:00.000Z" };
+  const newer = { ...older, analysis: { facts: "invalid" }, claim: "corrupted claim", updatedAt: "2026-09-25T10:00:00.000Z" };
+
+  const restored = history.restoreCaseCollection(JSON.stringify({
+    version: 2, activeCaseId: "case-1", cases: [older, newer],
+  }), "");
+
+  assert.equal(restored.cases.length, 1);
+  assert.equal(restored.cases[0].claim, "saved claim");
+  assert.equal(restored.cases[0].updatedAt, "2026-09-23T10:00:00.000Z");
+});
+
 test("paginates claim text without dropping paragraphs", async () => {
   const pdf = await import("../lib/pdf.ts");
   assert.equal(typeof pdf.paginateClaimText, "function");
