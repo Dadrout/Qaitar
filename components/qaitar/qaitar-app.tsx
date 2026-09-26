@@ -6,6 +6,7 @@ import { ArrowRight, Clock3, FileText, Plus } from "lucide-react";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
 import { applyReviewIssueEdit } from "../../lib/case-review.ts";
+import { ClientRequestError, getClientErrorMessage } from "../../lib/client-errors.ts";
 import { restoreCaseSnapshot, serializeCaseSnapshot } from "../../lib/client-case.ts";
 import type { Locale } from "../../lib/i18n/index.ts";
 import { getBrowserSupabase } from "../../lib/supabase/browser.ts";
@@ -140,7 +141,8 @@ function QaitarAppContent() {
           body: JSON.stringify({ caseId, files: files.map((file) => ({ name: file.name, type: file.type, size: file.size })) }),
         });
         const signed = await signResponse.json() as { error?: string; uploads?: Array<{ name: string; type: string; size: number; path: string; token: string }> };
-        if (!signResponse.ok || !signed.uploads) throw new Error(signed.error ?? "Не удалось загрузить файлы");
+        if (!signResponse.ok) throw new ClientRequestError(signResponse.status, signed.error);
+        if (!signed.uploads) throw new Error("Missing signed uploads");
         const supabase = getBrowserSupabase();
         if (!supabase) throw new Error("Хранилище не настроено");
         await Promise.all(signed.uploads.map(async (upload, index) => {
@@ -167,11 +169,11 @@ function QaitarAppContent() {
       }
       const response = await responsePromise;
       const payload = await response.json() as { error?: string; caseId?: string; analysis?: CaseAnalysis };
-      if (!response.ok) throw new Error(payload.error);
+      if (!response.ok) throw new ClientRequestError(response.status, payload.error);
       if (!payload.caseId || !payload.analysis) throw new Error("Пустой ответ сервиса");
       updateCase({ id: payload.caseId, state: "DOCUMENTS_ANALYZED", analysis: payload.analysis, evidence: evidence.map((item) => ({ ...item, status: "processed" })) });
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Не удалось разобрать документы");
+      setError(getClientErrorMessage("analysis", locale, reason));
     } finally { setBusy(null); }
   }
 
@@ -198,11 +200,12 @@ function QaitarAppContent() {
     updateCase({ state: "CASE_CONFIRMED" }); setBusy("legal"); setError(null);
     try {
       const [response] = await Promise.all([fetch("/api/legal-recommendation", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ analysis: caseData.analysis, demo, locale }) }), wait(3_200)]);
-      const payload = await response.json() as { recommendation?: LegalRecommendation };
+      const payload = await response.json() as { error?: string; recommendation?: LegalRecommendation };
+      if (!response.ok) throw new ClientRequestError(response.status, payload.error);
       if (!payload.recommendation) throw new Error("Пустой ответ сервиса");
       const recommendation = payload.recommendation;
       updateCase({ recommendation, state: recommendation.status === "legal_basis_found" ? "LEGAL_BASIS_FOUND" : "LEGAL_SEARCH_COMPLETED" });
-    } catch { setError("Не удалось проверить правовую базу. Попробуйте ещё раз."); }
+    } catch (reason) { setError(getClientErrorMessage("legal", locale, reason)); }
     finally { setBusy(null); }
   }
 
@@ -212,10 +215,10 @@ function QaitarAppContent() {
     try {
       const response = await fetch("/api/claim", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ analysis: caseData.analysis, recommendation: caseData.recommendation, consumer, locale }) });
       const payload = await response.json() as { error?: string; claim?: string };
-      if (!response.ok) throw new Error(payload.error);
+      if (!response.ok) throw new ClientRequestError(response.status, payload.error);
       if (!payload.claim) throw new Error("Пустой ответ сервиса");
       updateCase({ claim: payload.claim, state: "CLAIM_GENERATED" });
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "Не удалось подготовить претензию"); }
+    } catch (reason) { setError(getClientErrorMessage("claim", locale, reason)); }
   }
 
   function changeResponseDraft(draft: SellerResponseDraft) {
@@ -250,7 +253,7 @@ function QaitarAppContent() {
       const request = createSellerResponseRequest(draft, caseData.analysis, locale, forceDemo || demo);
       const [response] = await Promise.all([fetch("/api/seller-response", request), wait(3_200)]);
       const payload = await response.json() as { error?: string; responseAnalysis?: SellerResponseAnalysis; recommendation?: LegalRecommendation | null; officialActionPlan?: OfficialActionPlan | null };
-      if (!response.ok) throw new Error(payload.error);
+      if (!response.ok) throw new ClientRequestError(response.status, payload.error);
       if (!payload.responseAnalysis) throw new Error("Пустой ответ сервиса");
       const sellerResponse = payload.responseAnalysis;
       const submittedAt = new Date().toISOString();
@@ -264,7 +267,7 @@ function QaitarAppContent() {
       setResponseOpen(false);
     } catch (reason) {
       updateCase({ state: previousState === "SELLER_RESPONSE_UPLOADED" ? "WAITING_FOR_RESPONSE" : previousState });
-      setError(reason instanceof Error ? reason.message : "Не удалось разобрать ответ продавца");
+      setError(getClientErrorMessage("seller", locale, reason));
     } finally { responseInFlight.current = false; setBusy(null); }
   }
 

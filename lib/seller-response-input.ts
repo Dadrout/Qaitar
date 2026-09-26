@@ -48,7 +48,13 @@ export function validateSellerResponseDraft(draft: SellerResponseDraft, locale: 
   if (draft.mode === "file") {
     if (!draft.file) return { ok: false, error: errors.fileRequired };
     const result = normalizeSellerResponseFile(draft.file);
-    return result.ok ? { ok: true } : { ok: false, error: result.error };
+    if (result.ok) return { ok: true };
+    const fileError = {
+      "Этот формат не поддерживается": errors.fileFormat,
+      "Файл больше 10 МБ": errors.fileSize,
+      "Файл пуст": errors.fileEmpty,
+    }[result.error];
+    return { ok: false, error: fileError ?? errors.fileRequired };
   }
   if (draft.mode === "text") return draft.text.trim().length >= 3 ? { ok: true } : { ok: false, error: errors.textRequired };
   if (!draft.claimSentAt) return { ok: false, error: errors.sentRequired };

@@ -79,11 +79,12 @@ test("presents generated and incoming documents as actionable workflow artifacts
   const response = readSource("components/qaitar/seller-response.tsx");
   const responsePresentation = readSource("lib/seller-response-presentation.ts");
   const bureau = readSource("components/qaitar/document-workspace.tsx");
+  const copy = readSource("lib/i18n/ru.ts");
   assert.match(claim, /aspect-\[1\/1\.414\]/);
-  assert.match(claim, /aria-label="Действия с претензией"/);
-  assert.match(response, /Ответ продавца получен/);
-  assert.match(`${response}\n${responsePresentation}`, /следующий официальный шаг/i);
-  assert.match(bureau, /Что это\?/);
-  assert.match(bureau, /Что важно\?/);
-  assert.match(bureau, /Что делать\?/);
+  assert.match(`${claim}\n${copy}`, /Действия с претензией/);
+  assert.match(`${response}\n${copy}`, /Ответ продавца получен/);
+  assert.match(`${response}\n${responsePresentation}\n${copy}`, /следующий официальный шаг/i);
+  assert.match(`${bureau}\n${copy}`, /Что это\?/);
+  assert.match(`${bureau}\n${copy}`, /Что важно\?/);
+  assert.match(`${bureau}\n${copy}`, /Что делать\?/);
 });
