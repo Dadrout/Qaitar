@@ -29,18 +29,18 @@ const copy = {
     manualAuthorityReason: "Компетентный орган не подтверждён найденными официальными источниками.",
     channel: "Подать обращение через eOtinish",
     deadline: "Не позднее двух месяцев с обращения к продавцу",
-    deadlineExplanation: "Статья 42-5 отсчитывает срок от обращения с претензией к продавцу; дата претензии в материалах не указана, поэтому календарная дата не рассчитана. Проверьте, не установлен ли иной срок законом.",
-    deadlineExplanationWithDate: (date: string) => `Статья 42-5 отсчитывает двухмесячный срок от обращения с претензией к продавцу (${date}). Точная календарная дата не рассчитана; проверьте, не установлен ли иной срок законом.`,
+    deadlineExplanation: "Статья 42-5 отсчитывает двухмесячный срок с момента обращения к продавцу с претензией. Дату начала срока нужно подтвердить по материалам обращения; календарная дата не рассчитана. Проверьте, не установлен ли иной срок законом.",
     unknownDeadline: "Уточните срок подачи",
     unknownDeadlineExplanation: "Срок не подтверждён найденными официальными источниками.",
     missingSources: "Подтвердите статьи 42-4 и 42-5 и канал подачи по официальным источникам.",
-    missingClaimDate: "Дата направления претензии продавцу для проверки срока подачи",
+    verifyFilingStart: "Подтвердите момент обращения к продавцу с претензией для проверки двухмесячного срока подачи.",
     missingReceiptDate: "Подтвердите дату получения претензии продавцом для проверки десятидневного срока ответа.",
+    conflictingClaimDates: "Даты направления и получения претензии противоречат друг другу; уточните их по подтверждающим материалам.",
     waitForResponse: "Отсчитайте десять календарных дней со следующего дня после получения претензии продавцом; продавец может ответить до конца десятого дня. Либо подтвердите письменный отказ.",
     legalReview: "Проверьте правовое основание для официального обращения.",
     missingFacts: "Уточните продавца, товар, дату покупки и проблему для текста обращения.",
     attachments: ["Копия претензии продавцу", "Ответ продавца или подтверждение отсутствия ответа", "Документы, подтверждающие покупку", "Материалы, подтверждающие проблему"],
-    steps: ["Проверьте дату направления претензии и двухмесячный срок обращения; при отсутствии ответа проверьте дату получения претензии продавцом.", "Подготовьте копию претензии, ответ продавца и документы по покупке.", "Укажите в обращении свои данные, сведения о продавце, обстоятельства и требование.", "Выберите Департамент торговли и защиты прав потребителей своего региона в eOtinish и подайте обращение с приложениями.", "Сохраните подтверждение подачи и следите за ответом ведомства."],
+    steps: ["Подтвердите момент обращения к продавцу с претензией для проверки двухмесячного срока; при отсутствии ответа отдельно проверьте дату получения претензии продавцом.", "Подготовьте копию претензии, ответ продавца и документы по покупке.", "Укажите в обращении свои данные, сведения о продавце, обстоятельства и требование.", "Выберите Департамент торговли и защиты прав потребителей своего региона в eOtinish и подайте обращение с приложениями.", "Сохраните подтверждение подачи и следите за ответом ведомства."],
     refused: "Продавец отказал в удовлетворении письменной претензии",
     silent: "Продавец не ответил на письменную претензию в установленный срок",
     basis42_4: "После отказа продавца или отсутствия ответа по истечении десяти календарных дней, отсчитываемых со следующего дня после получения претензии продавцом, допускается обращение в уполномоченный орган.",
@@ -53,17 +53,17 @@ const copy = {
     authorityReason: "Ресми түсіндірме сатушы бас тартқаннан немесе жауап бермегеннен кейін өңірлік департаментті көрсетеді.",
     manualAuthorityReason: "Құзыретті орган табылған ресми дереккөздермен расталмады.", channel: "eOtinish арқылы өтініш беру",
     deadline: "Сатушыға жүгінгеннен кейін екі айдан кешіктірмей",
-    deadlineExplanation: "42-5-бап мерзімді сатушыға талап жолдаған күннен есептейді; талап күні белгісіз, сондықтан нақты күн есептелмеді. Заңда өзге мерзім бар-жоғын тексеріңіз.",
-    deadlineExplanationWithDate: (date: string) => `42-5-бап екі айлық мерзімді сатушыға талап жолдаған күннен (${date}) есептейді. Нақты күн есептелмеді; заңда өзге мерзім бар-жоғын тексеріңіз.`,
+    deadlineExplanation: "42-5-бап екі айлық мерзімді сатушыға талаппен жүгінген сәттен есептейді. Басталу күнін өтініш материалдарымен растау қажет; нақты күн есептелмеді. Заңда өзге мерзім бар-жоғын тексеріңіз.",
     unknownDeadline: "Өтініш мерзімін нақтылаңыз", unknownDeadlineExplanation: "Мерзім табылған ресми дереккөздермен расталмады.",
     missingSources: "42-4 және 42-5-баптарды және ресми дереккөздерден өтініш арнасын растаңыз.",
-    missingClaimDate: "Өтініш мерзімін тексеру үшін сатушыға талап жіберілген күн",
+    verifyFilingStart: "Екі айлық беру мерзімін тексеру үшін сатушыға талаппен жүгінген сәтті растаңыз.",
     missingReceiptDate: "Он күндік жауап мерзімін тексеру үшін сатушының талапты алған күнін растаңыз.",
+    conflictingClaimDates: "Талап жіберілген және алынған күндер бір-біріне қайшы; оларды растайтын материалдар бойынша нақтылаңыз.",
     waitForResponse: "Сатушы талапты алған күннен кейінгі келесі күннен бастап он күнтізбелік күнді есептеңіз; сатушы оныншы күннің соңына дейін жауап бере алады. Немесе жазбаша бас тартуды растаңыз.",
     legalReview: "Ресми өтініштің құқықтық негізін тексеріңіз.",
     missingFacts: "Өтініш мәтіні үшін сатушыны, тауарды, сатып алу күнін және мәселені нақтылаңыз.",
     attachments: ["Сатушыға жолданған талаптың көшірмесі", "Сатушының жауабы немесе жауап болмағанын растайтын құжат", "Сатып алуды растайтын құжаттар", "Мәселені растайтын материалдар"],
-    steps: ["Талап жіберілген күнді және екі айлық мерзімді тексеріңіз; жауап болмаса, сатушының талапты алған күнін де тексеріңіз.", "Талап көшірмесін, сатушы жауабын және сатып алу құжаттарын дайындаңыз.", "Өтініште өз деректеріңізді, сатушыны, мән-жайды және талабыңызды көрсетіңіз.", "eOtinish жүйесінде өз өңіріңіздің департаментін таңдап, өтініш пен қосымшаларды жіберіңіз.", "Жіберілгенін растайтын құжатты сақтап, жауапты қадағалаңыз."],
+    steps: ["Екі айлық мерзімді тексеру үшін сатушыға талаппен жүгінген сәтті растаңыз; жауап болмаса, сатушының талапты алған күнін бөлек тексеріңіз.", "Талап көшірмесін, сатушы жауабын және сатып алу құжаттарын дайындаңыз.", "Өтініште өз деректеріңізді, сатушыны, мән-жайды және талабыңызды көрсетіңіз.", "eOtinish жүйесінде өз өңіріңіздің департаментін таңдап, өтініш пен қосымшаларды жіберіңіз.", "Жіберілгенін растайтын құжатты сақтап, жауапты қадағалаңыз."],
     refused: "Сатушы жазбаша талапты қанағаттандырудан бас тартты", silent: "Сатушы жазбаша талапқа белгіленген мерзімде жауап бермеді",
     basis42_4: "Сатушы бас тартса немесе талапты алғаннан кейінгі келесі күннен есептелетін он күнтізбелік күн аяқталғанша жауап бермесе, уәкілетті органға жүгінуге болады.",
     basis42_5: "Мемлекеттік органға өтініш талаптан кейін екі айдан кешіктірмей беріледі; жауап немесе талап көшірмесі мен растайтын құжаттар қоса беріледі.",
@@ -75,17 +75,17 @@ const copy = {
     authorityReason: "Official guidance names the regional department after a seller refusal or missing response.",
     manualAuthorityReason: "The competent authority is not confirmed by retrieved official sources.", channel: "Submit through eOtinish",
     deadline: "Within two months of contacting the seller",
-    deadlineExplanation: "Article 42-5 measures the period from the written claim to the seller. That date is unavailable, so no calendar deadline is calculated. Check whether another law sets a different period.",
-    deadlineExplanationWithDate: (date: string) => `Article 42-5 measures the two month period from the written claim to the seller (${date}). No calendar deadline is calculated; check whether another law sets a different period.`,
+    deadlineExplanation: "Article 42-5 measures the two-month period from approaching the seller with a claim. Confirm that starting date from the claim records; no calendar deadline is calculated. Check whether another law sets a different period.",
     unknownDeadline: "Verify the filing period", unknownDeadlineExplanation: "The period is not confirmed by retrieved official sources.",
     missingSources: "Confirm Articles 42-4 and 42-5 and a submission channel from official sources.",
-    missingClaimDate: "Date the written claim was sent to the seller to check the filing period",
+    verifyFilingStart: "Confirm when you approached the seller with the claim to check the two-month filing period.",
     missingReceiptDate: "Confirm the date the seller received the claim to check the ten-day response period.",
+    conflictingClaimDates: "The claim's sent and received dates contradict each other; correct them using supporting records.",
     waitForResponse: "Count ten calendar days starting the day after the seller received the claim; the seller may reply through the end of day ten. Alternatively, confirm a written refusal.",
     legalReview: "Verify the legal basis for an official appeal.",
     missingFacts: "Confirm the seller, product, purchase date, and problem for the appeal text.",
     attachments: ["Copy of the written claim to the seller", "Seller response or evidence of no response", "Purchase documents", "Evidence of the problem"],
-    steps: ["Check the claim-sent date and the two month filing period; if there was no reply, also check the seller's receipt date.", "Prepare the claim, seller response, and purchase documents.", "Include your details, seller details, circumstances, and request.", "Select your regional Department of Trade and Consumer Rights Protection in eOtinish and submit the appeal with attachments.", "Keep the submission confirmation and monitor the agency response."],
+    steps: ["Confirm when you approached the seller with the claim to check the two-month filing period; if there was no reply, separately check when the seller received the claim.", "Prepare the claim, seller response, and purchase documents.", "Include your details, seller details, circumstances, and request.", "Select your regional Department of Trade and Consumer Rights Protection in eOtinish and submit the appeal with attachments.", "Keep the submission confirmation and monitor the agency response."],
     refused: "The seller refused the written claim", silent: "The seller did not respond to the written claim within the allowed period",
     basis42_4: "A seller refusal or no answer by the end of ten calendar days counted from the day after seller receipt permits an appeal to the competent authority.",
     basis42_5: "The appeal to a state body is due within two months of the seller claim, with the response or claim copy and supporting documents.",
@@ -118,6 +118,7 @@ export function buildOfficialActionPlan({ caseData, responseAnalysis, recommenda
   const t = copy[locale];
   const sentDate = validCalendarDate(claimSentAt);
   const receivedDate = validCalendarDate(verifiedClaimReceivedAt);
+  const conflictingClaimDates = sentDate !== null && receivedDate !== null && receivedDate < sentDate;
   const recommendedUrls = new Set(recommendation.legalBasis.map((basis) => basis.sourceUrl));
   const sourced = chunks.filter((chunk) => recommendedUrls.has(chunk.sourceUrl) && isCuratedChunk(chunk));
   const article42_4 = sourced.find((chunk) => chunk.sourceUrl === lawUrl && chunk.article === "42-4" && /откаж|отказ|не ответ|отсутств.*ответ/i.test(chunk.text));
@@ -135,13 +136,14 @@ export function buildOfficialActionPlan({ caseData, responseAnalysis, recommenda
     (receivedDate !== null && hasSellerResponseDeadlineElapsed(receivedDate, today));
   const ready = validToday && hasCaseFacts && responseAnalysis.requiresLegalReview &&
     (responseAnalysis.responseType === "rejected" || responseAnalysis.responseType === "no_response") &&
-    legalReviewReady && sourcesComplete && noResponseElapsed;
+    legalReviewReady && sourcesComplete && noResponseElapsed && !conflictingClaimDates;
   const missingInformation = [
     ...(!sourcesComplete ? [t.missingSources] : []),
     ...(!hasCaseFacts ? [t.missingFacts] : []),
     ...(!legalReviewReady ? [t.legalReview] : []),
-    ...(!sentDate ? [t.missingClaimDate] : []),
+    ...(article42_5 ? [t.verifyFilingStart] : []),
     ...(responseAnalysis.responseType === "no_response" && !receivedDate ? [t.missingReceiptDate] : []),
+    ...(conflictingClaimDates ? [t.conflictingClaimDates] : []),
     ...(responseAnalysis.responseType === "no_response" && receivedDate && !noResponseElapsed ? [t.waitForResponse] : []),
   ];
   const plan: OfficialActionPlan = {
@@ -149,7 +151,7 @@ export function buildOfficialActionPlan({ caseData, responseAnalysis, recommenda
     title: ready ? t.title : t.manualTitle,
     authority: guide ? { name: t.authority, reason: t.authorityReason, sourceUrl: guideUrl } : { name: null, reason: t.manualAuthorityReason, sourceUrl: null },
     channels: ready ? [{ type: "eotinish", label: t.channel, url: "https://eotinish.kz", sourceUrl: guideUrl }] : [],
-    deadline: article42_5 ? { label: t.deadline, date: null, explanation: sentDate ? t.deadlineExplanationWithDate(sentDate) : t.deadlineExplanation, sourceUrl: lawUrl } : { label: t.unknownDeadline, date: null, explanation: t.unknownDeadlineExplanation, sourceUrl: null },
+    deadline: article42_5 ? { label: t.deadline, date: null, explanation: t.deadlineExplanation, sourceUrl: lawUrl } : { label: t.unknownDeadline, date: null, explanation: t.unknownDeadlineExplanation, sourceUrl: null },
     steps: ready ? [...t.steps] : [],
     requiredAttachments: ready ? [...t.attachments] : [],
     legalBasis,

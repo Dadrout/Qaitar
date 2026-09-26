@@ -115,7 +115,15 @@ export const SellerResponseJsonInputSchema = z.discriminatedUnion("mode", [
     analysis: CaseAnalysisSchema,
     locale: localeSchema,
   }),
-]);
+]).superRefine((input, context) => {
+  if (input.mode === "no_response" && input.claimSentAt && input.claimReceivedAt && input.claimReceivedAt < input.claimSentAt) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["claimReceivedAt"],
+      message: "Дата получения претензии не может предшествовать дате направления",
+    });
+  }
+});
 
 export const OfficialActionPlanSchema = z.object({
   status: z.enum(["ready", "manual_verification_required"]),

@@ -56,7 +56,7 @@ test("no-response official plan becomes ready only after day ten ends in Kazakhs
   assert.equal(at.status, "ready");
   assert.match(at.appealText ?? "", /не ответил.*установленн/i);
   assert.equal(at.missingInformation.some((item) => /получ.*претензи/i.test(item)), false);
-  assert.match(at.deadline.explanation, /дата претензии.*не указана/i);
+  assert.match(at.deadline.explanation, /дату начала срока нужно подтвердить/i);
   assert.doesNotMatch(at.deadline.explanation, /2026-09-01/);
 });
 
@@ -99,6 +99,56 @@ test("restoring a legacy sent-only case does not create a receipt date", async (
   assert.equal(restored.cases[0].claimSentAt, "2026-09-01");
   assert.deepEqual(restored.cases[0].sellerResponseInput, legacyCase.sellerResponseInput);
   assert.equal("claimReceivedAt" in restored.cases[0].sellerResponseInput!, false);
+});
+
+test("contradictory sent and received dates cannot produce a ready no-response plan", async () => {
+  const { buildOfficialActionPlan } = await import("../lib/official-action-plan.ts");
+  const plan = buildOfficialActionPlan({
+    caseData: caseAnalysisFixture, responseAnalysis: noResponse, recommendation, chunks, locale: "ru",
+    claimSentAt: "2026-09-25", verifiedClaimReceivedAt: "2026-09-01",
+    today: new Date("2026-09-30T00:00:00.000Z"),
+  });
+  assert.equal(plan.status, "manual_verification_required");
+  assert.equal(plan.appealText, null);
+  assert.deepEqual(plan.channels, []);
+  assert.ok(plan.missingInformation.some((item) => /дат.*(направлен|получен)/i.test(item)));
+  assert.doesNotMatch(plan.deadline.explanation, /2026-09-25/);
+});
+
+test("request validation rejects receipt before sending but accepts equal and later receipt", async () => {
+  const { parseSellerResponseJson } = await import("../lib/seller-response-input.ts");
+  const base = { mode: "no_response", analysis: caseAnalysisFixture, locale: "ru", claimSentAt: "2026-09-01" };
+  assert.throws(() => parseSellerResponseJson({ ...base, claimReceivedAt: "2026-08-31" }));
+  assert.equal(parseSellerResponseJson({ ...base, claimReceivedAt: "2026-09-01" }).mode, "no_response");
+  assert.equal(parseSellerResponseJson({ ...base, claimReceivedAt: "2026-09-03" }).mode, "no_response");
+});
+
+test("route asks for correction when a claim is reported received before it was sent", async () => {
+  const { POST } = await import("../app/api/seller-response/route.ts");
+  const response = await POST(new Request("http://localhost/api/seller-response", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ mode: "no_response", analysis: caseAnalysisFixture, locale: "ru", claimSentAt: "2026-09-25", claimReceivedAt: "2026-09-01" }),
+  }));
+  assert.equal(response.status, 400);
+  const body = await response.json() as { error: string; officialActionPlan?: unknown };
+  assert.equal(body.officialActionPlan, undefined);
+  assert.match(body.error, /дата получения.*не может/i);
+});
+
+test("equal-day and receive-after-send plans use receipt for silence and do not assign a filing start date", async () => {
+  const { buildOfficialActionPlan } = await import("../lib/official-action-plan.ts");
+  for (const receivedAt of ["2026-09-01", "2026-09-03"]) {
+    const plan = buildOfficialActionPlan({
+      caseData: caseAnalysisFixture, responseAnalysis: noResponse, recommendation, chunks, locale: "ru",
+      claimSentAt: "2026-09-01", verifiedClaimReceivedAt: receivedAt,
+      today: new Date("2026-09-30T00:00:00.000Z"),
+    });
+    assert.equal(plan.status, "ready");
+    assert.equal(plan.deadline.date, null);
+    assert.match(plan.deadline.explanation, /с момента обращения|от обращения/i);
+    assert.doesNotMatch(plan.deadline.explanation, /2026-09-01|2026-09-03/);
+    assert.ok(plan.missingInformation.some((item) => /момент обращения/i.test(item)));
+  }
 });
 
 test("curated corpus does not assert unsupported effective dates", () => {

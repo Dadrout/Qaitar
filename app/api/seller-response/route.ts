@@ -122,10 +122,16 @@ export async function POST(request: Request) {
       : null;
     return Response.json({ responseAnalysis, recommendation, officialActionPlan, demo: false });
   } catch (error) {
-    console.error("Seller response analysis failed", error);
-    if (error instanceof z.ZodError || error instanceof SyntaxError) {
+    if (error instanceof z.ZodError) {
+      if (error.issues.some((issue) => issue.path[0] === "claimReceivedAt" && issue.code === "custom")) {
+        return Response.json({ error: "Дата получения претензии не может предшествовать дате направления. Проверьте обе даты." }, { status: 400 });
+      }
       return Response.json({ error: "Некорректные данные ответа продавца" }, { status: 400 });
     }
+    if (error instanceof SyntaxError) {
+      return Response.json({ error: "Некорректные данные ответа продавца" }, { status: 400 });
+    }
+    console.error("Seller response analysis failed", error);
     return Response.json({ error: getSellerResponseUserMessage(error) }, { status: 502 });
   }
 }
