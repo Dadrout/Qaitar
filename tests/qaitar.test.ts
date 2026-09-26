@@ -829,3 +829,67 @@ test("routes payloads near Vercel's limit through direct storage upload", async 
   assert.equal(requiresDirectUpload([500_000, 600_000]), false);
   assert.equal(requiresDirectUpload([3_000_000, 1_100_000]), true);
 });
+
+test("seller response draft validation covers file, text, and receipt chronology", async () => {
+  const input = await import("../lib/seller-response-input.ts");
+  assert.deepEqual(input.validateSellerResponseDraft({ mode: "file", file: null }), { ok: false, error: "Выберите файл ответа" });
+  assert.deepEqual(input.validateSellerResponseDraft({ mode: "text", text: "  " }), { ok: false, error: "Вставьте текст ответа продавца" });
+  assert.deepEqual(input.validateSellerResponseDraft({ mode: "no_response", claimSentAt: "", claimReceivedAt: "", receiptVerified: false }), { ok: false, error: "Укажите дату отправки претензии" });
+  assert.deepEqual(input.validateSellerResponseDraft({ mode: "no_response", claimSentAt: "2026-09-02", claimReceivedAt: "2026-09-01", receiptVerified: true }), { ok: false, error: "Дата получения не может быть раньше даты отправки" });
+  assert.deepEqual(input.validateSellerResponseDraft({ mode: "no_response", claimSentAt: "2026-09-01", claimReceivedAt: "2026-09-01", receiptVerified: true }, "ru", new Date("2026-09-11T18:59:59Z")), { ok: false, error: "Срок ответа продавца ещё не истёк" });
+  assert.deepEqual(input.validateSellerResponseDraft({ mode: "no_response", claimSentAt: "2026-09-01", claimReceivedAt: "2026-09-01", receiptVerified: true }, "ru", new Date("2026-09-11T19:00:00Z")), { ok: true });
+  assert.deepEqual(input.validateSellerResponseDraft({ mode: "text", text: "Продавец отказал в возврате." }), { ok: true });
+});
+
+test("seller response requests use JSON for text and verified receipt, multipart for files", async () => {
+  const { createSellerResponseRequest } = await import("../lib/seller-response-input.ts");
+  const { caseAnalysisFixture } = await import("./fixtures.ts");
+  const textRequest = createSellerResponseRequest({ mode: "text", text: "  Продавец отказал.  " }, caseAnalysisFixture, "ru");
+  assert.equal((textRequest.headers as Record<string, string>)["Content-Type"], "application/json");
+  assert.deepEqual(JSON.parse(textRequest.body as string), { mode: "text", text: "Продавец отказал.", analysis: caseAnalysisFixture, locale: "ru" });
+
+  const noResponseRequest = createSellerResponseRequest({ mode: "no_response", claimSentAt: "2026-09-01", claimReceivedAt: "2026-09-03", receiptVerified: true }, caseAnalysisFixture, "en");
+  assert.deepEqual(JSON.parse(noResponseRequest.body as string), { mode: "no_response", claimSentAt: "2026-09-01", claimReceivedAt: "2026-09-03", analysis: caseAnalysisFixture, locale: "en" });
+  const unverifiedRequest = createSellerResponseRequest({ mode: "no_response", claimSentAt: "2026-09-01", claimReceivedAt: "", receiptVerified: false }, caseAnalysisFixture, "ru");
+  assert.equal(JSON.parse(unverifiedRequest.body as string).claimReceivedAt, undefined);
+
+  const file = new File(["reply"], "reply.pdf", { type: "application/pdf" });
+  const fileRequest = createSellerResponseRequest({ mode: "file", file }, caseAnalysisFixture, "kk", true);
+  assert.ok(fileRequest.body instanceof FormData);
+  assert.equal(fileRequest.body.get("file"), file);
+  assert.equal(fileRequest.body.get("demo"), "true");
+});
+
+test("seller response state advances only when an official plan is ready", async () => {
+  const { sellerResponseNextState } = await import("../lib/seller-response-input.ts");
+  assert.equal(sellerResponseNextState({ responseType: "accepted" }, null), "SELLER_ACCEPTED");
+  assert.equal(sellerResponseNextState({ responseType: "rejected" }, { status: "manual_verification_required" }), "SELLER_REJECTED");
+  assert.equal(sellerResponseNextState({ responseType: "no_response" }, { status: "ready" }), "ESCALATION_READY");
+  assert.equal(sellerResponseNextState({ responseType: "unclear" }, { status: "ready" }), "SELLER_REJECTED");
+});
+
+test("seller response drafts retain each mode value while switching", async () => {
+  const { emptySellerResponseDrafts, saveSellerResponseDraft } = await import("../lib/seller-response-input.ts");
+  const file = new File(["reply"], "reply.pdf", { type: "application/pdf" });
+  const initial = emptySellerResponseDrafts("2026-09-01");
+  const withFile = saveSellerResponseDraft(initial, { mode: "file", file });
+  const withText = saveSellerResponseDraft(withFile, { mode: "text", text: "Seller refused." });
+  assert.equal(withText.file.file, file);
+  assert.equal(withText.text.text, "Seller refused.");
+  assert.equal(withText.no_response.claimSentAt, "2026-09-01");
+});
+
+test("claim sent date cannot be an impossible or future calendar day", async () => {
+  const { validateClaimSentDate } = await import("../lib/seller-response-input.ts");
+  const now = new Date("2026-09-26T12:00:00Z");
+  assert.equal(validateClaimSentDate("2026-02-29", now), false);
+  assert.equal(validateClaimSentDate("2026-09-27", now), false);
+  assert.equal(validateClaimSentDate("2026-09-26", now), true);
+});
+
+test("editing the sent date requires confirming it again before opening the response", async () => {
+  const { isClaimSentConfirmed } = await import("../lib/seller-response-input.ts");
+  assert.equal(isClaimSentConfirmed("WAITING_FOR_RESPONSE", "2026-09-01", "2026-09-01"), true);
+  assert.equal(isClaimSentConfirmed("WAITING_FOR_RESPONSE", "2026-09-01", "2026-09-02"), false);
+  assert.equal(isClaimSentConfirmed("CLAIM_GENERATED", null, "2026-09-01"), false);
+});

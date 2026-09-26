@@ -1,14 +1,18 @@
 import type { SellerResponseAnalysis } from "../types/qaitar.ts";
+import { getMessages, type Locale } from "./i18n/index.ts";
 
-export function getSellerResponsePresentation(type: SellerResponseAnalysis["responseType"]) {
+export function getSellerResponsePresentation(type: SellerResponseAnalysis["responseType"], locale: Locale = "ru") {
+  const copy = getMessages(locale).seller;
   switch (type) {
     case "accepted":
-      return { label: "Требование принято", tone: "success", nextTitle: "Продавец согласился с требованием. Проверьте исполнение.", meaningFallback: "Продавец согласился с требованием. Сохраните ответ и проверьте, что договорённость выполнена." } as const;
+      return { label: copy.status.accepted, tone: "success", nextTitle: copy.nextTitle.accepted, meaningFallback: copy.meaningFallback.accepted } as const;
     case "rejected":
-      return { label: "Продавец отказал", tone: "danger", nextTitle: "Qaitar проверил отказ и нашёл следующий официальный шаг.", meaningFallback: "Ответ сохранён. Qaitar пока не нашёл надёжного правового основания для следующего шага — проверьте ситуацию вручную." } as const;
+      return { label: copy.status.rejected, tone: "danger", nextTitle: copy.nextTitle.rejected, meaningFallback: copy.meaningFallback.rejected } as const;
     case "additional_information_requested":
-      return { label: "Запрошены документы", tone: "notice", nextTitle: "Проверьте, какие сведения нужны продавцу.", meaningFallback: "Проверьте запрос продавца и подготовьте только относящиеся к делу документы." } as const;
+      return { label: copy.status.additional_information_requested, tone: "notice", nextTitle: copy.nextTitle.additional_information_requested, meaningFallback: copy.meaningFallback.additional_information_requested } as const;
     case "unclear":
-      return { label: "Ответ неоднозначен", tone: "notice", nextTitle: "Уточните позицию продавца перед следующим шагом.", meaningFallback: "Из ответа пока нельзя понять решение продавца. Попросите письменное уточнение." } as const;
+      return { label: copy.status.unclear, tone: "notice", nextTitle: copy.nextTitle.unclear, meaningFallback: copy.meaningFallback.unclear } as const;
+    case "no_response":
+      return { label: copy.status.no_response, tone: "notice", nextTitle: copy.nextTitle.no_response, meaningFallback: copy.meaningFallback.no_response } as const;
   }
 }

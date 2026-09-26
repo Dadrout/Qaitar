@@ -10,4 +10,9 @@ test("presents every seller-response type without mislabelling it as a refusal",
   assert.equal(getSellerResponsePresentation("unclear").label, "Ответ неоднозначен");
   assert.doesNotMatch(getSellerResponsePresentation("unclear").nextTitle, /отказ/i);
   assert.match(getSellerResponsePresentation("rejected").meaningFallback, /не нашёл надёжного правового основания/);
+  assert.equal(getSellerResponsePresentation("rejected", "en").label, "Seller refused");
+  assert.equal(getSellerResponsePresentation("additional_information_requested", "kk").label, "Құжаттар сұралды");
+  assert.equal(getSellerResponsePresentation("no_response").label, "Ответ не получен");
+  assert.doesNotMatch(getSellerResponsePresentation("no_response").label, /отказ/i);
+  assert.match(getSellerResponsePresentation("no_response").nextTitle, /дату получения/);
 });

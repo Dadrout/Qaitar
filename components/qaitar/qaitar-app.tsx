@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, Clock3, FileText, Plus } from "lucide-react";
 
 import { Button } from "../ui/button";
@@ -10,8 +10,9 @@ import { restoreCaseSnapshot, serializeCaseSnapshot } from "../../lib/client-cas
 import type { Locale } from "../../lib/i18n/index.ts";
 import { getBrowserSupabase } from "../../lib/supabase/browser.ts";
 import { requiresDirectUpload } from "../../lib/upload-strategy.ts";
-import { validateProblemInput } from "../../lib/workflow.ts";
-import type { CaseAnalysis, EvidenceItem, LegalRecommendation, QaitarCase, SellerResponseAnalysis } from "../../types/qaitar.ts";
+import { createSellerResponseRequest, emptySellerResponseDrafts, isClaimSentConfirmed, saveSellerResponseDraft, sellerResponseNextState, validateClaimSentDate, validateSellerResponseDraft, type SellerResponseDraft, type SellerResponseDrafts } from "../../lib/seller-response-input.ts";
+import { resolveUploadType, validateProblemInput } from "../../lib/workflow.ts";
+import type { CaseAnalysis, EvidenceItem, LegalRecommendation, OfficialActionPlan, QaitarCase, SellerResponseAnalysis, SellerResponseInput } from "../../types/qaitar.ts";
 import { AnalysisProgress } from "./analysis-progress";
 import { AppShell } from "./app-shell";
 import { CaseReview } from "./case-review";
@@ -76,11 +77,20 @@ function QaitarAppContent() {
   const [busy, setBusy] = useState<BusyPhase>(null);
   const [error, setError] = useState<string | null>(null);
   const [responseOpen, setResponseOpen] = useState(false);
+  const [claimSentDateDraft, setClaimSentDateDraft] = useState("");
+  const [responseMode, setResponseMode] = useState<SellerResponseDraft["mode"]>("file");
+  const [responseDrafts, setResponseDrafts] = useState<SellerResponseDrafts>(() => emptySellerResponseDrafts());
+  const responseInFlight = useRef(false);
+  const responseDraft = responseDrafts[responseMode];
 
   useEffect(() => {
     const saved = restoreCaseSnapshot(window.localStorage.getItem(STORAGE_KEY) ?? "");
     const timeout = window.setTimeout(() => {
-      if (saved && saved.state !== "NEW_CASE" && saved.state !== "FILES_UPLOADED") setCaseData(saved);
+      if (saved && saved.state !== "NEW_CASE" && saved.state !== "FILES_UPLOADED") {
+        setCaseData(saved.state === "SELLER_RESPONSE_UPLOADED" ? { ...saved, state: "WAITING_FOR_RESPONSE" } : saved);
+        setClaimSentDateDraft(saved.claimSentAt ?? "");
+        setResponseDrafts(emptySellerResponseDrafts(saved.claimSentAt ?? ""));
+      }
     }, 0);
     return () => window.clearTimeout(timeout);
   }, []);
@@ -204,31 +214,63 @@ function QaitarAppContent() {
       const payload = await response.json() as { error?: string; claim?: string };
       if (!response.ok) throw new Error(payload.error);
       if (!payload.claim) throw new Error("Пустой ответ сервиса");
-      updateCase({ claim: payload.claim, state: "WAITING_FOR_RESPONSE" });
+      updateCase({ claim: payload.claim, state: "CLAIM_GENERATED" });
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Не удалось подготовить претензию"); }
   }
 
-  async function analyzeResponse(file: File, forceDemo = false) {
+  function changeResponseDraft(draft: SellerResponseDraft) {
+    setResponseDrafts((current) => saveSellerResponseDraft(current, draft));
+    setError(null);
+  }
+
+  function changeClaimSentAt(value: string) {
+    setClaimSentDateDraft(value);
+    setError(null);
+  }
+
+  function markClaimSent() {
+    if (!validateClaimSentDate(claimSentDateDraft)) {
+      setError(messages.seller.validation.sentInvalid);
+      return;
+    }
+    updateCase({ claimSentAt: claimSentDateDraft, state: "WAITING_FOR_RESPONSE" });
+    setResponseDrafts((current) => ({ ...current, no_response: { ...current.no_response, claimSentAt: claimSentDateDraft } }));
+    setError(null);
+  }
+
+  async function analyzeResponse(draft: SellerResponseDraft = responseDraft, forceDemo = false) {
+    if (responseInFlight.current || busy === "response") return;
+    const validation = validateSellerResponseDraft(draft, locale);
+    if (!validation.ok) { setError(validation.error); return; }
+    responseInFlight.current = true;
+    const previousState = caseData.state;
     setBusy("response"); setError(null);
-    const formData = new FormData();
-    formData.set("file", file);
-    if (caseData.analysis) formData.set("analysis", JSON.stringify(caseData.analysis));
-    formData.set("demo", String(forceDemo || demo));
-    formData.set("locale", locale);
+    updateCase({ state: "SELLER_RESPONSE_UPLOADED" });
     try {
-      const [response] = await Promise.all([fetch("/api/seller-response", { method: "POST", body: formData }), wait(3_200)]);
-      const payload = await response.json() as { error?: string; responseAnalysis?: SellerResponseAnalysis; recommendation?: LegalRecommendation | null };
+      const request = createSellerResponseRequest(draft, caseData.analysis, locale, forceDemo || demo);
+      const [response] = await Promise.all([fetch("/api/seller-response", request), wait(3_200)]);
+      const payload = await response.json() as { error?: string; responseAnalysis?: SellerResponseAnalysis; recommendation?: LegalRecommendation | null; officialActionPlan?: OfficialActionPlan | null };
       if (!response.ok) throw new Error(payload.error);
       if (!payload.responseAnalysis) throw new Error("Пустой ответ сервиса");
       const sellerResponse = payload.responseAnalysis;
-      updateCase({ sellerResponse, recommendation: payload.recommendation ?? caseData.recommendation, state: sellerResponse.responseType === "accepted" ? "SELLER_ACCEPTED" : payload.recommendation ? "ESCALATION_READY" : "SELLER_REJECTED" });
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "Не удалось разобрать ответ продавца"); }
-    finally { setBusy(null); }
+      const submittedAt = new Date().toISOString();
+      const sellerResponseInput: SellerResponseInput = draft.mode === "file"
+        ? { mode: "file", fileName: draft.file!.name, mimeType: resolveUploadType(draft.file!), size: draft.file!.size, submittedAt }
+        : draft.mode === "text"
+          ? { mode: "text", text: draft.text.trim(), submittedAt }
+          : { mode: "no_response", claimSentAt: draft.claimSentAt, ...(draft.receiptVerified ? { claimReceivedAt: draft.claimReceivedAt } : {}), submittedAt };
+      updateCase({ sellerResponseInput, sellerResponse, recommendation: payload.recommendation ?? null, officialActionPlan: payload.officialActionPlan ?? null, claimSentAt: draft.mode === "no_response" ? draft.claimSentAt : caseData.claimSentAt, state: sellerResponseNextState(sellerResponse, payload.officialActionPlan ?? null) });
+      setResponseDrafts(emptySellerResponseDrafts(caseData.claimSentAt ?? ""));
+      setResponseOpen(false);
+    } catch (reason) {
+      updateCase({ state: previousState === "SELLER_RESPONSE_UPLOADED" ? "WAITING_FOR_RESPONSE" : previousState });
+      setError(reason instanceof Error ? reason.message : "Не удалось разобрать ответ продавца");
+    } finally { responseInFlight.current = false; setBusy(null); }
   }
 
   function resetCase() {
     if (savedCaseExists && !window.confirm(messages.common.newCaseConfirm)) return;
-    setCaseData(emptyCase()); setFiles([]); setResponseOpen(false); setError(null); setView("workflow"); window.localStorage.removeItem(STORAGE_KEY);
+    setCaseData(emptyCase()); setFiles([]); setResponseOpen(false); setClaimSentDateDraft(""); setResponseMode("file"); setResponseDrafts(emptySellerResponseDrafts()); setError(null); setView("workflow"); window.localStorage.removeItem(STORAGE_KEY);
   }
 
   return (
@@ -239,9 +281,9 @@ function QaitarAppContent() {
           {(caseData.state === "NEW_CASE" || caseData.state === "FILES_UPLOADED") && <NewCase files={files} evidence={evidence} problemType={caseData.problemType} problemDescription={caseData.problemDescription} error={error} onFiles={chooseFiles} onRemove={(id) => chooseFiles(files.filter((file) => evidenceId(file) !== id))} onProblem={(problemType) => updateCase({ problemType })} onProblemDescription={(problemDescription) => updateCase({ problemDescription })} onAnalyze={analyze} onDemo={addDemo} />}
           {caseData.state === "DOCUMENTS_ANALYZED" && caseData.analysis && <CaseReview analysis={caseData.analysis} onChange={updateFact} onConfirm={confirmCase} />}
           {(caseData.state === "LEGAL_BASIS_FOUND" || caseData.state === "LEGAL_SEARCH_COMPLETED") && caseData.recommendation && <LegalResult recommendation={caseData.recommendation} onPrepare={() => updateCase({ state: "CLAIM_READY" })} />}
-          {caseData.state === "CLAIM_READY" && <ClaimEditor claim={null} demo={demo} busy={false} onGenerate={generateClaim} onChangeClaim={() => undefined} onAddResponse={() => undefined} />}
-          {(caseData.state === "CLAIM_GENERATED" || caseData.state === "WAITING_FOR_RESPONSE") && !responseOpen && <ClaimEditor claim={caseData.claim} demo={demo} busy={false} onGenerate={generateClaim} onChangeClaim={(claim) => updateCase({ claim })} onAddResponse={() => setResponseOpen(true)} />}
-          {(responseOpen || ["SELLER_RESPONSE_UPLOADED", "SELLER_ACCEPTED", "SELLER_REJECTED", "ESCALATION_READY"].includes(caseData.state)) && <SellerResponse result={caseData.sellerResponse} recommendation={caseData.sellerResponse ? caseData.recommendation : null} onAnalyze={(file) => analyzeResponse(file)} onDemo={() => analyzeResponse(new File(["Qaitar demo rejection"], "seller-rejection.pdf", { type: "application/pdf" }), true)} />}
+          {caseData.state === "CLAIM_READY" && <ClaimEditor claim={null} demo={demo} busy={false} claimSentAt="" sent={false} onGenerate={generateClaim} onChangeClaim={() => undefined} onClaimSentAtChange={() => undefined} onMarkSent={() => undefined} onAddResponse={() => undefined} />}
+          {(caseData.state === "CLAIM_GENERATED" || caseData.state === "WAITING_FOR_RESPONSE") && !responseOpen && <ClaimEditor claim={caseData.claim} demo={demo} busy={false} claimSentAt={claimSentDateDraft} sent={isClaimSentConfirmed(caseData.state, caseData.claimSentAt, claimSentDateDraft)} onGenerate={generateClaim} onChangeClaim={(claim) => updateCase({ claim })} onClaimSentAtChange={changeClaimSentAt} onMarkSent={markClaimSent} onAddResponse={() => setResponseOpen(true)} />}
+          {(responseOpen || ["SELLER_RESPONSE_UPLOADED", "SELLER_ACCEPTED", "SELLER_REJECTED", "ESCALATION_READY"].includes(caseData.state)) && <SellerResponse result={caseData.sellerResponse} recommendation={caseData.sellerResponse ? caseData.recommendation : null} draft={responseDraft} onDraftChange={changeResponseDraft} onModeChange={(mode) => { setResponseMode(mode); setError(null); }} onAnalyze={() => analyzeResponse()} onDemo={() => analyzeResponse({ mode: "file", file: new File(["Qaitar demo rejection"], "seller-rejection.pdf", { type: "application/pdf" }) }, true)} error={error} />}
         </>
       )}
       <footer className="mx-auto max-w-5xl px-6 pb-8 pt-4 text-center text-xs leading-5 text-muted-foreground">{messages.disclaimer}</footer>
