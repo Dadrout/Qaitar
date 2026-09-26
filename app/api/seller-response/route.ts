@@ -19,15 +19,18 @@ export async function POST(request: Request) {
     let locale: ReturnType<typeof normalizeLocale>;
     let demo = false;
     let responseAnalysis;
+    let verifiedClaimSentAt: string | null = null;
+    const today = new Date();
 
     if (contentType.includes("application/json")) {
       const input = parseSellerResponseJson(await request.json());
       caseData = input.analysis;
       locale = input.locale;
       if (input.mode === "no_response") {
-        if (!hasSellerResponseDeadlineElapsed(input.claimSentAt)) {
+        if (!hasSellerResponseDeadlineElapsed(input.claimSentAt, today)) {
           return Response.json({ error: "Срок ответа продавца ещё не истёк" }, { status: 400 });
         }
+        verifiedClaimSentAt = input.claimSentAt;
         responseAnalysis = buildNoResponseAnalysis(locale);
       } else {
         responseAnalysis = await analyzeSellerResponse({
@@ -92,7 +95,7 @@ export async function POST(request: Request) {
       return Response.json({
         responseAnalysis,
         recommendation,
-        officialActionPlan: buildOfficialActionPlan({ caseData, responseAnalysis, recommendation, chunks: [], locale, today: new Date() }),
+        officialActionPlan: buildOfficialActionPlan({ caseData, responseAnalysis, recommendation, chunks: [], locale, today, verifiedClaimSentAt }),
         demo: true,
       });
     }
@@ -105,7 +108,7 @@ export async function POST(request: Request) {
       ? await reasonFromLegalChunks(enrichedCase, chunks, locale)
       : noReliableLegalBasis(enrichedCase.caseType, locale);
     const officialActionPlan = responseAnalysis.responseType === "rejected" || responseAnalysis.responseType === "no_response"
-      ? buildOfficialActionPlan({ caseData, responseAnalysis, recommendation, chunks, locale, today: new Date() })
+      ? buildOfficialActionPlan({ caseData, responseAnalysis, recommendation, chunks, locale, today, verifiedClaimSentAt })
       : null;
     return Response.json({ responseAnalysis, recommendation, officialActionPlan, demo: false });
   } catch (error) {
