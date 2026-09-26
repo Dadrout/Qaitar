@@ -11,7 +11,8 @@ type Input = {
   chunks: LegalChunk[];
   locale: Locale;
   today: Date;
-  verifiedClaimSentAt?: string | null;
+  claimSentAt?: string | null;
+  verifiedClaimReceivedAt?: string | null;
 };
 
 const lawUrl = "https://adilet.zan.kz/rus/docs/Z100000274_";
@@ -34,14 +35,15 @@ const copy = {
     unknownDeadlineExplanation: "Срок не подтверждён найденными официальными источниками.",
     missingSources: "Подтвердите статьи 42-4 и 42-5 и канал подачи по официальным источникам.",
     missingClaimDate: "Дата направления претензии продавцу для проверки срока подачи",
-    waitForResponse: "Дождитесь истечения десяти календарных дней после получения претензии продавцом или подтвердите письменный отказ.",
+    missingReceiptDate: "Подтвердите дату получения претензии продавцом для проверки десятидневного срока ответа.",
+    waitForResponse: "Отсчитайте десять календарных дней со следующего дня после получения претензии продавцом; продавец может ответить до конца десятого дня. Либо подтвердите письменный отказ.",
     legalReview: "Проверьте правовое основание для официального обращения.",
     missingFacts: "Уточните продавца, товар, дату покупки и проблему для текста обращения.",
     attachments: ["Копия претензии продавцу", "Ответ продавца или подтверждение отсутствия ответа", "Документы, подтверждающие покупку", "Материалы, подтверждающие проблему"],
-    steps: ["Проверьте дату письменной претензии и двухмесячный срок обращения.", "Подготовьте копию претензии, ответ продавца и документы по покупке.", "Укажите в обращении свои данные, сведения о продавце, обстоятельства и требование.", "Выберите Департамент торговли и защиты прав потребителей своего региона в eOtinish и подайте обращение с приложениями.", "Сохраните подтверждение подачи и следите за ответом ведомства."],
+    steps: ["Проверьте дату направления претензии и двухмесячный срок обращения; при отсутствии ответа проверьте дату получения претензии продавцом.", "Подготовьте копию претензии, ответ продавца и документы по покупке.", "Укажите в обращении свои данные, сведения о продавце, обстоятельства и требование.", "Выберите Департамент торговли и защиты прав потребителей своего региона в eOtinish и подайте обращение с приложениями.", "Сохраните подтверждение подачи и следите за ответом ведомства."],
     refused: "Продавец отказал в удовлетворении письменной претензии",
     silent: "Продавец не ответил на письменную претензию в установленный срок",
-    basis42_4: "После отказа продавца или отсутствия ответа в течение десяти календарных дней допускается обращение в уполномоченный орган.",
+    basis42_4: "После отказа продавца или отсутствия ответа по истечении десяти календарных дней, отсчитываемых со следующего дня после получения претензии продавцом, допускается обращение в уполномоченный орган.",
     basis42_5: "Обращение в государственный орган подаётся не позднее двух месяцев с претензии; к нему прилагают ответ продавца или копию претензии и подтверждающие документы.",
     basisGuide: "Разъяснение указывает региональный департамент и eOtinish как канал подачи.",
   },
@@ -56,13 +58,14 @@ const copy = {
     unknownDeadline: "Өтініш мерзімін нақтылаңыз", unknownDeadlineExplanation: "Мерзім табылған ресми дереккөздермен расталмады.",
     missingSources: "42-4 және 42-5-баптарды және ресми дереккөздерден өтініш арнасын растаңыз.",
     missingClaimDate: "Өтініш мерзімін тексеру үшін сатушыға талап жіберілген күн",
-    waitForResponse: "Сатушы талапты алғаннан кейін он күнтізбелік күннің өтуін күтіңіз немесе жазбаша бас тартуды растаңыз.",
+    missingReceiptDate: "Он күндік жауап мерзімін тексеру үшін сатушының талапты алған күнін растаңыз.",
+    waitForResponse: "Сатушы талапты алған күннен кейінгі келесі күннен бастап он күнтізбелік күнді есептеңіз; сатушы оныншы күннің соңына дейін жауап бере алады. Немесе жазбаша бас тартуды растаңыз.",
     legalReview: "Ресми өтініштің құқықтық негізін тексеріңіз.",
     missingFacts: "Өтініш мәтіні үшін сатушыны, тауарды, сатып алу күнін және мәселені нақтылаңыз.",
     attachments: ["Сатушыға жолданған талаптың көшірмесі", "Сатушының жауабы немесе жауап болмағанын растайтын құжат", "Сатып алуды растайтын құжаттар", "Мәселені растайтын материалдар"],
-    steps: ["Жазбаша талап күнін және екі айлық мерзімді тексеріңіз.", "Талап көшірмесін, сатушы жауабын және сатып алу құжаттарын дайындаңыз.", "Өтініште өз деректеріңізді, сатушыны, мән-жайды және талабыңызды көрсетіңіз.", "eOtinish жүйесінде өз өңіріңіздің департаментін таңдап, өтініш пен қосымшаларды жіберіңіз.", "Жіберілгенін растайтын құжатты сақтап, жауапты қадағалаңыз."],
+    steps: ["Талап жіберілген күнді және екі айлық мерзімді тексеріңіз; жауап болмаса, сатушының талапты алған күнін де тексеріңіз.", "Талап көшірмесін, сатушы жауабын және сатып алу құжаттарын дайындаңыз.", "Өтініште өз деректеріңізді, сатушыны, мән-жайды және талабыңызды көрсетіңіз.", "eOtinish жүйесінде өз өңіріңіздің департаментін таңдап, өтініш пен қосымшаларды жіберіңіз.", "Жіберілгенін растайтын құжатты сақтап, жауапты қадағалаңыз."],
     refused: "Сатушы жазбаша талапты қанағаттандырудан бас тартты", silent: "Сатушы жазбаша талапқа белгіленген мерзімде жауап бермеді",
-    basis42_4: "Сатушы бас тартса немесе он күнтізбелік күнде жауап бермесе, уәкілетті органға жүгінуге болады.",
+    basis42_4: "Сатушы бас тартса немесе талапты алғаннан кейінгі келесі күннен есептелетін он күнтізбелік күн аяқталғанша жауап бермесе, уәкілетті органға жүгінуге болады.",
     basis42_5: "Мемлекеттік органға өтініш талаптан кейін екі айдан кешіктірмей беріледі; жауап немесе талап көшірмесі мен растайтын құжаттар қоса беріледі.",
     basisGuide: "Ресми түсіндірме өңірлік департаментті және eOtinish арнасын көрсетеді.",
   },
@@ -77,13 +80,14 @@ const copy = {
     unknownDeadline: "Verify the filing period", unknownDeadlineExplanation: "The period is not confirmed by retrieved official sources.",
     missingSources: "Confirm Articles 42-4 and 42-5 and a submission channel from official sources.",
     missingClaimDate: "Date the written claim was sent to the seller to check the filing period",
-    waitForResponse: "Wait ten calendar days after the seller received the claim, or confirm a written refusal.",
+    missingReceiptDate: "Confirm the date the seller received the claim to check the ten-day response period.",
+    waitForResponse: "Count ten calendar days starting the day after the seller received the claim; the seller may reply through the end of day ten. Alternatively, confirm a written refusal.",
     legalReview: "Verify the legal basis for an official appeal.",
     missingFacts: "Confirm the seller, product, purchase date, and problem for the appeal text.",
     attachments: ["Copy of the written claim to the seller", "Seller response or evidence of no response", "Purchase documents", "Evidence of the problem"],
-    steps: ["Check the written claim date and the two month filing period.", "Prepare the claim, seller response, and purchase documents.", "Include your details, seller details, circumstances, and request.", "Select your regional Department of Trade and Consumer Rights Protection in eOtinish and submit the appeal with attachments.", "Keep the submission confirmation and monitor the agency response."],
+    steps: ["Check the claim-sent date and the two month filing period; if there was no reply, also check the seller's receipt date.", "Prepare the claim, seller response, and purchase documents.", "Include your details, seller details, circumstances, and request.", "Select your regional Department of Trade and Consumer Rights Protection in eOtinish and submit the appeal with attachments.", "Keep the submission confirmation and monitor the agency response."],
     refused: "The seller refused the written claim", silent: "The seller did not respond to the written claim within the allowed period",
-    basis42_4: "A seller refusal or no answer within ten calendar days permits an appeal to the competent authority.",
+    basis42_4: "A seller refusal or no answer by the end of ten calendar days counted from the day after seller receipt permits an appeal to the competent authority.",
     basis42_5: "The appeal to a state body is due within two months of the seller claim, with the response or claim copy and supporting documents.",
     basisGuide: "Official guidance identifies the regional department and eOtinish channel.",
   },
@@ -104,14 +108,16 @@ function composeAppeal(caseData: CaseAnalysis, responseAnalysis: SellerResponseA
   return `В Департамент торговли и защиты прав потребителей соответствующего региона\n\n${date} я приобрёл(а) у ${seller} товар «${product}»${amount}. Проблема: ${issue}. Я направил(а) продавцу письменную претензию. ${responseAnalysis.responseType === "rejected" ? copy.ru.refused : copy.ru.silent}.\n\nПрошу рассмотреть нарушение моих прав потребителя, дать оценку действиям продавца и сообщить о результатах рассмотрения.\n\nПриложения: ${attachments.join("; ")}.`;
 }
 
-export function buildOfficialActionPlan({ caseData, responseAnalysis, recommendation, chunks, locale, today, verifiedClaimSentAt = null }: Input): OfficialActionPlan {
+function validCalendarDate(value: string | null | undefined) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value ? value : null;
+}
+
+export function buildOfficialActionPlan({ caseData, responseAnalysis, recommendation, chunks, locale, today, claimSentAt = null, verifiedClaimReceivedAt = null }: Input): OfficialActionPlan {
   const t = copy[locale];
-  const parsedClaimDate = verifiedClaimSentAt && /^\d{4}-\d{2}-\d{2}$/.test(verifiedClaimSentAt)
-    ? new Date(`${verifiedClaimSentAt}T00:00:00.000Z`)
-    : null;
-  const claimDate = parsedClaimDate && Number.isFinite(parsedClaimDate.getTime()) && parsedClaimDate.toISOString().slice(0, 10) === verifiedClaimSentAt
-    ? verifiedClaimSentAt
-    : null;
+  const sentDate = validCalendarDate(claimSentAt);
+  const receivedDate = validCalendarDate(verifiedClaimReceivedAt);
   const recommendedUrls = new Set(recommendation.legalBasis.map((basis) => basis.sourceUrl));
   const sourced = chunks.filter((chunk) => recommendedUrls.has(chunk.sourceUrl) && isCuratedChunk(chunk));
   const article42_4 = sourced.find((chunk) => chunk.sourceUrl === lawUrl && chunk.article === "42-4" && /откаж|отказ|не ответ|отсутств.*ответ/i.test(chunk.text));
@@ -126,7 +132,7 @@ export function buildOfficialActionPlan({ caseData, responseAnalysis, recommenda
   const sourcesComplete = Boolean(article42_4 && article42_5 && guide);
   const legalReviewReady = recommendation.status === "legal_basis_found" && recommendation.recommendedAction === "prepare_official_appeal";
   const noResponseElapsed = responseAnalysis.responseType !== "no_response" ||
-    (claimDate !== null && hasSellerResponseDeadlineElapsed(claimDate, today));
+    (receivedDate !== null && hasSellerResponseDeadlineElapsed(receivedDate, today));
   const ready = validToday && hasCaseFacts && responseAnalysis.requiresLegalReview &&
     (responseAnalysis.responseType === "rejected" || responseAnalysis.responseType === "no_response") &&
     legalReviewReady && sourcesComplete && noResponseElapsed;
@@ -134,15 +140,16 @@ export function buildOfficialActionPlan({ caseData, responseAnalysis, recommenda
     ...(!sourcesComplete ? [t.missingSources] : []),
     ...(!hasCaseFacts ? [t.missingFacts] : []),
     ...(!legalReviewReady ? [t.legalReview] : []),
-    ...(!claimDate ? [t.missingClaimDate] : []),
-    ...(responseAnalysis.responseType === "no_response" && claimDate && !noResponseElapsed ? [t.waitForResponse] : []),
+    ...(!sentDate ? [t.missingClaimDate] : []),
+    ...(responseAnalysis.responseType === "no_response" && !receivedDate ? [t.missingReceiptDate] : []),
+    ...(responseAnalysis.responseType === "no_response" && receivedDate && !noResponseElapsed ? [t.waitForResponse] : []),
   ];
   const plan: OfficialActionPlan = {
     status: ready ? "ready" : "manual_verification_required",
     title: ready ? t.title : t.manualTitle,
     authority: guide ? { name: t.authority, reason: t.authorityReason, sourceUrl: guideUrl } : { name: null, reason: t.manualAuthorityReason, sourceUrl: null },
     channels: ready ? [{ type: "eotinish", label: t.channel, url: "https://eotinish.kz", sourceUrl: guideUrl }] : [],
-    deadline: article42_5 ? { label: t.deadline, date: null, explanation: claimDate ? t.deadlineExplanationWithDate(claimDate) : t.deadlineExplanation, sourceUrl: lawUrl } : { label: t.unknownDeadline, date: null, explanation: t.unknownDeadlineExplanation, sourceUrl: null },
+    deadline: article42_5 ? { label: t.deadline, date: null, explanation: sentDate ? t.deadlineExplanationWithDate(sentDate) : t.deadlineExplanation, sourceUrl: lawUrl } : { label: t.unknownDeadline, date: null, explanation: t.unknownDeadlineExplanation, sourceUrl: null },
     steps: ready ? [...t.steps] : [],
     requiredAttachments: ready ? [...t.attachments] : [],
     legalBasis,

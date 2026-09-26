@@ -78,10 +78,10 @@ test("normalizes a response file MIME type from its extension", async () => {
   });
 });
 
-test("treats exactly ten Kazakhstan calendar days as elapsed", async () => {
+test("treats ten full Kazakhstan calendar days after receipt as elapsed", async () => {
   const { hasSellerResponseDeadlineElapsed } = await import("../lib/seller-response-input.ts");
-  assert.equal(hasSellerResponseDeadlineElapsed("2026-09-01", new Date("2026-09-10T18:59:59.000Z")), false);
-  assert.equal(hasSellerResponseDeadlineElapsed("2026-09-01", new Date("2026-09-10T19:00:00.000Z")), true);
+  assert.equal(hasSellerResponseDeadlineElapsed("2026-09-01", new Date("2026-09-11T18:59:59.000Z")), false);
+  assert.equal(hasSellerResponseDeadlineElapsed("2026-09-01", new Date("2026-09-11T19:00:00.000Z")), true);
   assert.equal(hasSellerResponseDeadlineElapsed("2026-02-29", new Date("2026-03-20T00:00:00.000Z")), false);
 });
 

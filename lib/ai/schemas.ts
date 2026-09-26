@@ -109,7 +109,9 @@ export const SellerResponseJsonInputSchema = z.discriminatedUnion("mode", [
   }),
   z.object({
     mode: z.literal("no_response"),
-    claimSentAt: z.string().date(),
+    // claimSentAt is accepted for legacy cases but cannot establish seller receipt.
+    claimSentAt: z.string().date().optional(),
+    claimReceivedAt: z.string().date().optional(),
     analysis: CaseAnalysisSchema,
     locale: localeSchema,
   }),

@@ -23,33 +23,82 @@ const noResponse: SellerResponseAnalysis = {
   responseType: "no_response", sellerReason: null, summary: "Продавец не ответил.", newFacts: [], requiresLegalReview: true,
 };
 
-test("AI-classified no-response without a verified claim date cannot produce a ready official plan", async () => {
+test("AI-classified no-response without a verified receipt date cannot produce a ready official plan", async () => {
   const { buildOfficialActionPlan } = await import("../lib/official-action-plan.ts");
   const plan = buildOfficialActionPlan({ caseData: caseAnalysisFixture, responseAnalysis: noResponse, recommendation, chunks, locale: "ru", today: new Date("2026-09-25T00:00:00.000Z") });
   assert.equal(plan.status, "manual_verification_required");
   assert.deepEqual(plan.channels, []);
   assert.equal(plan.appealText, null);
-  assert.ok(plan.missingInformation.some((item) => /дата.*претензи/i.test(item)));
+  assert.ok(plan.missingInformation.some((item) => /получ.*претензи/i.test(item)));
 });
 
-test("a no-response claim sent yesterday cannot produce a ready official plan", async () => {
+test("an old sent date alone cannot prove seller receipt or produce a ready plan", async () => {
   const { buildOfficialActionPlan } = await import("../lib/official-action-plan.ts");
-  const plan = buildOfficialActionPlan({ caseData: caseAnalysisFixture, responseAnalysis: noResponse, recommendation, chunks, locale: "ru", verifiedClaimSentAt: "2026-09-24", today: new Date("2026-09-25T00:00:00.000Z") });
+  const plan = buildOfficialActionPlan({ caseData: caseAnalysisFixture, responseAnalysis: noResponse, recommendation, chunks, locale: "ru", claimSentAt: "2026-09-01", today: new Date("2026-09-25T00:00:00.000Z") });
   assert.equal(plan.status, "manual_verification_required");
   assert.deepEqual(plan.channels, []);
   assert.equal(plan.appealText, null);
 });
 
-test("no-response official plan becomes ready exactly at the Kazakhstan ten-day boundary", async () => {
+test("a claim received yesterday cannot produce a ready official plan", async () => {
   const { buildOfficialActionPlan } = await import("../lib/official-action-plan.ts");
-  const before = buildOfficialActionPlan({ caseData: caseAnalysisFixture, responseAnalysis: noResponse, recommendation, chunks, locale: "ru", verifiedClaimSentAt: "2026-09-01", today: new Date("2026-09-10T18:59:59.000Z") });
-  const at = buildOfficialActionPlan({ caseData: caseAnalysisFixture, responseAnalysis: noResponse, recommendation, chunks, locale: "ru", verifiedClaimSentAt: "2026-09-01", today: new Date("2026-09-10T19:00:00.000Z") });
+  const plan = buildOfficialActionPlan({ caseData: caseAnalysisFixture, responseAnalysis: noResponse, recommendation, chunks, locale: "ru", verifiedClaimReceivedAt: "2026-09-24", today: new Date("2026-09-25T00:00:00.000Z") });
+  assert.equal(plan.status, "manual_verification_required");
+  assert.deepEqual(plan.channels, []);
+  assert.equal(plan.appealText, null);
+});
+
+test("no-response official plan becomes ready only after day ten ends in Kazakhstan", async () => {
+  const { buildOfficialActionPlan } = await import("../lib/official-action-plan.ts");
+  const before = buildOfficialActionPlan({ caseData: caseAnalysisFixture, responseAnalysis: noResponse, recommendation, chunks, locale: "ru", verifiedClaimReceivedAt: "2026-09-01", today: new Date("2026-09-11T18:59:59.000Z") });
+  const at = buildOfficialActionPlan({ caseData: caseAnalysisFixture, responseAnalysis: noResponse, recommendation, chunks, locale: "ru", verifiedClaimReceivedAt: "2026-09-01", today: new Date("2026-09-11T19:00:00.000Z") });
   assert.equal(before.status, "manual_verification_required");
   assert.equal(at.status, "ready");
   assert.match(at.appealText ?? "", /не ответил.*установленн/i);
-  assert.equal(at.missingInformation.some((item) => /дата.*претензи/i.test(item)), false);
-  assert.match(at.deadline.explanation, /2026-09-01/);
-  assert.doesNotMatch(at.deadline.explanation, /не указана/);
+  assert.equal(at.missingInformation.some((item) => /получ.*претензи/i.test(item)), false);
+  assert.match(at.deadline.explanation, /дата претензии.*не указана/i);
+  assert.doesNotMatch(at.deadline.explanation, /2026-09-01/);
+});
+
+test("legacy sent-only no-response route returns manual verification, not an elapsed-period assertion", async () => {
+  const { POST } = await import("../app/api/seller-response/route.ts");
+  const request = new Request("http://localhost/api/seller-response", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ mode: "no_response", claimSentAt: "2026-09-01", analysis: caseAnalysisFixture, locale: "ru" }),
+  });
+  const response = await POST(request);
+  assert.equal(response.status, 200);
+  const body = await response.json() as { officialActionPlan: { status: string; appealText: string | null }; responseAnalysis: { summary: string } };
+  assert.equal(body.officialActionPlan.status, "manual_verification_required");
+  assert.equal(body.officialActionPlan.appealText, null);
+  assert.doesNotMatch(body.responseAnalysis.summary, /в установленный срок/i);
+});
+
+test("no-response route validates the seller receipt date, not an older sent date", async () => {
+  const { POST } = await import("../app/api/seller-response/route.ts");
+  const request = new Request("http://localhost/api/seller-response", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ mode: "no_response", claimSentAt: "2026-08-01", claimReceivedAt: "2099-09-25", analysis: caseAnalysisFixture, locale: "ru" }),
+  });
+  const response = await POST(request);
+  assert.equal(response.status, 400);
+  const body = await response.json() as { error: string };
+  assert.match(body.error, /ещё не истёк/i);
+});
+
+test("restoring a legacy sent-only case does not create a receipt date", async () => {
+  const { createEmptyCase, restoreCaseCollection } = await import("../lib/case-history.ts");
+  const legacyCase = {
+    ...createEmptyCase("legacy-sent-only"),
+    claimSentAt: "2026-09-01",
+    sellerResponseInput: { mode: "no_response", claimSentAt: "2026-09-01", submittedAt: "2026-09-12T00:00:00.000Z" },
+  };
+  const restored = restoreCaseCollection(JSON.stringify({ version: 2, activeCaseId: legacyCase.id, cases: [legacyCase] }), "");
+  assert.equal(restored.cases[0].claimSentAt, "2026-09-01");
+  assert.deepEqual(restored.cases[0].sellerResponseInput, legacyCase.sellerResponseInput);
+  assert.equal("claimReceivedAt" in restored.cases[0].sellerResponseInput!, false);
 });
 
 test("curated corpus does not assert unsupported effective dates", () => {

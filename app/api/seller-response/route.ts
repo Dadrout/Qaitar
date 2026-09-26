@@ -7,7 +7,7 @@ import { getDemoSellerResponse } from "../../../lib/demo/scenario.ts";
 import { normalizeLocale } from "../../../lib/i18n/index.ts";
 import { retrieveLegalChunks } from "../../../lib/legal/retrieve.ts";
 import { buildOfficialActionPlan } from "../../../lib/official-action-plan.ts";
-import { buildNoResponseAnalysis, hasSellerResponseDeadlineElapsed, normalizeSellerResponseFile, parseSellerResponseJson } from "../../../lib/seller-response-input.ts";
+import { buildNoResponseAnalysis, buildUnverifiedNoResponseAnalysis, hasSellerResponseDeadlineElapsed, normalizeSellerResponseFile, parseSellerResponseJson } from "../../../lib/seller-response-input.ts";
 import { z } from "zod";
 
 export const runtime = "nodejs";
@@ -19,7 +19,9 @@ export async function POST(request: Request) {
     let locale: ReturnType<typeof normalizeLocale>;
     let demo = false;
     let responseAnalysis;
-    let verifiedClaimSentAt: string | null = null;
+    let claimSentAt: string | null = null;
+    let verifiedClaimReceivedAt: string | null = null;
+    let missingReceiptDate = false;
     const today = new Date();
 
     if (contentType.includes("application/json")) {
@@ -27,11 +29,13 @@ export async function POST(request: Request) {
       caseData = input.analysis;
       locale = input.locale;
       if (input.mode === "no_response") {
-        if (!hasSellerResponseDeadlineElapsed(input.claimSentAt, today)) {
+        claimSentAt = input.claimSentAt ?? null;
+        verifiedClaimReceivedAt = input.claimReceivedAt ?? null;
+        if (verifiedClaimReceivedAt && !hasSellerResponseDeadlineElapsed(verifiedClaimReceivedAt, today)) {
           return Response.json({ error: "Срок ответа продавца ещё не истёк" }, { status: 400 });
         }
-        verifiedClaimSentAt = input.claimSentAt;
-        responseAnalysis = buildNoResponseAnalysis(locale);
+        missingReceiptDate = !verifiedClaimReceivedAt;
+        responseAnalysis = missingReceiptDate ? buildUnverifiedNoResponseAnalysis(locale) : buildNoResponseAnalysis(locale);
       } else {
         responseAnalysis = await analyzeSellerResponse({
           mode: "text",
@@ -75,6 +79,12 @@ export async function POST(request: Request) {
       return Response.json({ responseAnalysis, recommendation: null, officialActionPlan: null, demo });
     }
 
+    if (missingReceiptDate) {
+      const recommendation = noReliableLegalBasis(caseData.caseType, locale);
+      const officialActionPlan = buildOfficialActionPlan({ caseData, responseAnalysis, recommendation, chunks: [], locale, today, claimSentAt });
+      return Response.json({ responseAnalysis, recommendation, officialActionPlan, demo: false });
+    }
+
     if (demo) {
       const recommendation = {
         status: "legal_basis_found" as const,
@@ -95,7 +105,7 @@ export async function POST(request: Request) {
       return Response.json({
         responseAnalysis,
         recommendation,
-        officialActionPlan: buildOfficialActionPlan({ caseData, responseAnalysis, recommendation, chunks: [], locale, today, verifiedClaimSentAt }),
+        officialActionPlan: buildOfficialActionPlan({ caseData, responseAnalysis, recommendation, chunks: [], locale, today, claimSentAt, verifiedClaimReceivedAt }),
         demo: true,
       });
     }
@@ -108,7 +118,7 @@ export async function POST(request: Request) {
       ? await reasonFromLegalChunks(enrichedCase, chunks, locale)
       : noReliableLegalBasis(enrichedCase.caseType, locale);
     const officialActionPlan = responseAnalysis.responseType === "rejected" || responseAnalysis.responseType === "no_response"
-      ? buildOfficialActionPlan({ caseData, responseAnalysis, recommendation, chunks, locale, today, verifiedClaimSentAt })
+      ? buildOfficialActionPlan({ caseData, responseAnalysis, recommendation, chunks, locale, today, claimSentAt, verifiedClaimReceivedAt })
       : null;
     return Response.json({ responseAnalysis, recommendation, officialActionPlan, demo: false });
   } catch (error) {

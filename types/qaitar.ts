@@ -83,7 +83,7 @@ export type SellerResponseAnalysis = {
 export type SellerResponseInput =
   | { mode: "file"; fileName: string; mimeType: string; size: number; submittedAt: string }
   | { mode: "text"; text: string; submittedAt: string }
-  | { mode: "no_response"; claimSentAt: string; submittedAt: string };
+  | { mode: "no_response"; claimSentAt?: string; claimReceivedAt?: string; submittedAt: string };
 
 export type OfficialActionPlanStatus = "ready" | "manual_verification_required";
 export type OfficialSubmissionChannel = {

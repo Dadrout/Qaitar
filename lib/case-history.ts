@@ -53,7 +53,7 @@ const recommendationSchema = z.object({
 const sellerResponseInputSchema = z.discriminatedUnion("mode", [
   z.object({ mode: z.literal("file"), fileName: z.string(), mimeType: z.string(), size: z.number(), submittedAt: z.string() }),
   z.object({ mode: z.literal("text"), text: z.string(), submittedAt: z.string() }),
-  z.object({ mode: z.literal("no_response"), claimSentAt: z.string(), submittedAt: z.string() }),
+  z.object({ mode: z.literal("no_response"), claimSentAt: z.string().optional(), claimReceivedAt: z.string().optional(), submittedAt: z.string() }),
 ]);
 const sellerResponseSchema = z.object({
   responseType: z.enum(["accepted", "rejected", "additional_information_requested", "unclear", "no_response"]),
