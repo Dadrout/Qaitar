@@ -1,9 +1,12 @@
+import { isDeepStrictEqual } from "node:util";
+
+import corpus from "../../../data/legal/consumer-rights.ru.json" with { type: "json" };
 import { analyzeSellerResponse } from "../../../lib/ai/analyze-seller-response.ts";
 import { getSellerResponseUserMessage } from "../../../lib/ai/gemini.ts";
 import { embedLegalQuery } from "../../../lib/ai/embeddings.ts";
 import { createLegalSearchRequest, noReliableLegalBasis, reasonFromLegalChunks } from "../../../lib/ai/legal-reasoning.ts";
 import { CaseAnalysisSchema } from "../../../lib/ai/schemas.ts";
-import { getDemoSellerResponse } from "../../../lib/demo/scenario.ts";
+import { getDemoCaseAnalysis, getDemoSellerResponse } from "../../../lib/demo/scenario.ts";
 import { normalizeLocale } from "../../../lib/i18n/index.ts";
 import { retrieveLegalChunks } from "../../../lib/legal/retrieve.ts";
 import { buildOfficialActionPlan } from "../../../lib/official-action-plan.ts";
@@ -86,6 +89,11 @@ export async function POST(request: Request) {
     }
 
     if (demo) {
+      const seededCase = caseData !== null && isDeepStrictEqual(caseData, getDemoCaseAnalysis(locale));
+      const demoProcedure = seededCase ? corpus
+        .filter((entry) => (entry.sourceUrl === "https://adilet.zan.kz/rus/docs/Z100000274_" && ["42-4", "42-5"].includes(entry.article)) ||
+          (entry.sourceUrl === "https://www.gov.kz/situations/464/intro?lang=ru" && entry.article === "Порядок обращения"))
+        .map((entry) => ({ id: `${entry.article}:${entry.sourceUrl}`, lawName: entry.lawName, article: entry.article, section: entry.section, text: entry.text, language: entry.language, sourceUrl: entry.sourceUrl })) : [];
       const recommendation = {
         status: "legal_basis_found" as const,
         caseType: "defective_product" as const,
@@ -98,14 +106,19 @@ export async function POST(request: Request) {
           article: "42-4, 42-5",
           explanation: locale === "kk" ? "Жазбаша бас тартудан кейін немесе 10 күнтізбелік күн ішінде жауап болмаса, тұтынушы уәкілетті мемлекеттік органға жүгіне алады." : locale === "en" ? "After a written refusal or no reply within 10 calendar days, the consumer may contact the authorized state body." : "После письменного отказа или отсутствия ответа в течение 10 календарных дней потребитель вправе обратиться в уполномоченный государственный орган.",
           sourceUrl: "https://adilet.zan.kz/rus/docs/Z100000274_",
-        }],
+        }, ...(seededCase ? [{
+          lawName: "Официальное разъяснение Правительства Республики Казахстан",
+          article: "Порядок обращения",
+          explanation: locale === "kk" ? "Ресми түсіндірме өңірлік департамент пен eOtinish арнасын көрсетеді." : locale === "en" ? "Official guidance identifies the regional department and eOtinish submission channel." : "Официальное разъяснение указывает региональный департамент и канал подачи через eOtinish.",
+          sourceUrl: "https://www.gov.kz/situations/464/intro?lang=ru",
+        }] : [])],
         missingInformation: [],
         confidence: "high" as const,
       };
       return Response.json({
         responseAnalysis,
         recommendation,
-        officialActionPlan: buildOfficialActionPlan({ caseData, responseAnalysis, recommendation, chunks: [], locale, today, claimSentAt, verifiedClaimReceivedAt }),
+        officialActionPlan: buildOfficialActionPlan({ caseData, responseAnalysis, recommendation, chunks: demoProcedure, locale, today, claimSentAt, verifiedClaimReceivedAt }),
         demo: true,
       });
     }

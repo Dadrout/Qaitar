@@ -300,7 +300,7 @@ export const sellerResponseJsonSchema = {
 
 const officialSourceUrlJson = {
   type: "string",
-  pattern: "^https://(?:adilet\\.zan\\.kz|law\\.gov\\.kz|(?:[a-zA-Z0-9-]+\\.)*gov\\.kz)(?:[:/?#]|$)",
+  pattern: "^https://(?:adilet\\.zan\\.kz|law\\.gov\\.kz|(?:[a-zA-Z0-9-]+\\.)*gov\\.kz)(?::[0-9]{1,5})?(?:[/?#]|$)",
 };
 
 export const officialActionPlanJsonSchema = {

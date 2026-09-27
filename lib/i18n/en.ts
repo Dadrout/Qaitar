@@ -14,6 +14,7 @@ export const en: typeof ru = {
     descriptionLabel: "Describe the problem", descriptionPlaceholder: "For example: the left earbud disconnects after five minutes and the seller refused a refund",
     descriptionHint: "Tell us what happened in your own words. This description becomes part of your case.",
     descriptionRequired: "Describe the problem in your own words", chooseProblem: "Choose a problem type",
+    uploadValidation: { fileFormat: "This file format is not supported", fileSize: "The file is larger than 10 MB", fileEmpty: "The file is empty", maxFiles: "You can add no more than {count} files" },
     addFileHint: "Add at least one file to start the analysis.",
     trust: ["We check official Kazakhstan sources", "We link to legal provisions", "We ask you to confirm extracted facts"],
     problems: [

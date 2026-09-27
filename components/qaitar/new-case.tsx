@@ -41,7 +41,7 @@ export function NewCase({
   onAnalyze: () => void;
   onDemo: () => void;
 }) {
-  const { messages } = useLanguage();
+  const { locale, messages } = useLanguage();
   const input = useRef<HTMLInputElement>(null);
   const camera = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -50,7 +50,7 @@ export function NewCase({
   const validationMessage = problemType === "other" ? messages.newCase.descriptionRequired : messages.newCase.chooseProblem;
 
   function acceptFiles(incoming: File[]) {
-    const selection = selectUploadBatch(files, incoming);
+    const selection = selectUploadBatch(files, incoming, locale);
     setUploadError(selection.error);
     onFiles(selection.files);
   }

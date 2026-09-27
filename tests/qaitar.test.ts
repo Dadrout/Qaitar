@@ -188,6 +188,15 @@ test("reports rejected evidence instead of silently ignoring the selection", asy
   assert.match(result.error ?? "", /empty\.pdf: Файл пуст/);
 });
 
+test("localizes new-case upload errors for Kazakh and English", async () => {
+  const { selectUploadBatch } = await import("../lib/workflow.ts");
+  const files = [{ name: "contract.docx", type: "application/octet-stream", size: 128 }];
+  assert.equal(selectUploadBatch([], files, "kk").error, "contract.docx: Бұл файл пішімі қолдау көрсетілмейді");
+  assert.equal(selectUploadBatch([], files, "en").error, "contract.docx: This file format is not supported");
+  const full = Array.from({ length: 6 }, (_, index) => ({ name: `receipt-${index}.jpg`, type: "image/jpeg", size: 128 }));
+  assert.equal(selectUploadBatch(full, [{ name: "extra.jpg", type: "image/jpeg", size: 128 }], "en").error, "You can add no more than 6 files");
+});
+
 test("allows only deterministic case-state transitions", async () => {
   const workflow = await import("../lib/workflow.ts");
   assert.equal(typeof workflow.canTransition, "function");
@@ -282,7 +291,59 @@ test("constrains every official plan source in the provider JSON schema", async 
   for (const pattern of [authoritySource, channelSource, deadlineSource, legalSource]) {
     assert.equal(pattern.test("https://www.gov.kz/appeal"), true);
     assert.equal(pattern.test("https://example.com/appeal"), false);
+    assert.equal(pattern.test("https://gov.kz:443@evil.example/appeal"), false);
+    assert.equal(pattern.test("https://gov.kz@evil.example/appeal"), false);
   }
+});
+
+test("completes the seeded demo journey through an official action plan", async () => {
+  const analyzeRoute = await import("../app/api/analyze/route.ts");
+  const legalRoute = await import("../app/api/legal-recommendation/route.ts");
+  const claimRoute = await import("../app/api/claim/route.ts");
+  const sellerRoute = await import("../app/api/seller-response/route.ts");
+
+  const evidence = new FormData();
+  evidence.append("files", new File(["demo"], "receipt.jpg", { type: "image/jpeg" }));
+  evidence.append("files", new File(["demo"], "seller-chat.png", { type: "image/png" }));
+  evidence.set("demo", "true");
+  evidence.set("locale", "ru");
+  evidence.set("problemType", "defective_product");
+  const analyzedResponse = await analyzeRoute.POST(new Request("http://localhost/api/analyze", { method: "POST", body: evidence }));
+  assert.equal(analyzedResponse.status, 200);
+  const analyzed = await analyzedResponse.json() as { analysis: CaseAnalysis };
+  assert.equal(analyzed.analysis.issue, "Не работает левый наушник");
+
+  const legalResponse = await legalRoute.POST(new Request("http://localhost/api/legal-recommendation", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ analysis: analyzed.analysis, demo: true, locale: "ru" }),
+  }));
+  assert.equal(legalResponse.status, 200);
+  const legal = await legalResponse.json() as { recommendation: import("../types/qaitar.ts").LegalRecommendation };
+  assert.equal(legal.recommendation.status, "legal_basis_found");
+
+  const claimResponse = await claimRoute.POST(new Request("http://localhost/api/claim", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ analysis: analyzed.analysis, recommendation: legal.recommendation, locale: "ru", consumer: {
+      name: "Алия Сейдахметова", address: "Алматы", phone: "+7 700 000 00 00", email: "aliya@example.kz",
+    } }),
+  }));
+  assert.equal(claimResponse.status, 200);
+  const claim = await claimResponse.json() as { claim: string };
+  assert.match(claim.claim, /Не работает левый наушник/);
+
+  const response = new FormData();
+  response.set("file", new File(["demo refusal"], "seller-response.pdf", { type: "application/pdf" }));
+  response.set("analysis", JSON.stringify(analyzed.analysis));
+  response.set("demo", "true");
+  response.set("locale", "ru");
+  const resultResponse = await sellerRoute.POST(new Request("http://localhost/api/seller-response", { method: "POST", body: response }));
+  assert.equal(resultResponse.status, 200);
+  const result = await resultResponse.json() as { responseAnalysis: import("../types/qaitar.ts").SellerResponseAnalysis; officialActionPlan: import("../types/qaitar.ts").OfficialActionPlan };
+  assert.equal(result.responseAnalysis.responseType, "rejected");
+  assert.equal(result.officialActionPlan.status, "ready");
+  assert.ok(result.officialActionPlan.steps.length >= 4);
+  assert.equal(result.officialActionPlan.channels[0].url, "https://eotinish.kz");
+  assert.equal(result.officialActionPlan.deadline.date, null);
 });
 
 test("rejects an authoritative legal recommendation without an official source URL", async () => {

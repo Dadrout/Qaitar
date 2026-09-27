@@ -1,4 +1,5 @@
 import type { CaseAnalysis, CaseState } from "../types/qaitar.ts";
+import { getMessages, type Locale } from "./i18n/index.ts";
 
 export const MAX_FILE_SIZE = 10 * 1024 * 1024;
 export const MAX_FILES = 6;
@@ -49,15 +50,16 @@ const transitions: Record<CaseState, readonly CaseState[]> = {
   RESOLVED: [],
 };
 
-export function validateUpload(file: { name: string; type: string; size: number }) {
+export function validateUpload(file: { name: string; type: string; size: number }, locale: Locale = "ru") {
+  const copy = getMessages(locale).newCase.uploadValidation;
   if (!ALLOWED_MIME_TYPES.has(resolveUploadType(file))) {
-    return { ok: false as const, error: "Этот формат не поддерживается" };
+    return { ok: false as const, error: copy.fileFormat };
   }
   if (file.size > MAX_FILE_SIZE) {
-    return { ok: false as const, error: "Файл больше 10 МБ" };
+    return { ok: false as const, error: copy.fileSize };
   }
   if (file.size <= 0) {
-    return { ok: false as const, error: "Файл пуст" };
+    return { ok: false as const, error: copy.fileEmpty };
   }
   return { ok: true as const };
 }
@@ -65,19 +67,20 @@ export function validateUpload(file: { name: string; type: string; size: number 
 export function selectUploadBatch<T extends { name: string; type: string; size: number }>(
   current: T[],
   incoming: T[],
+  locale: Locale = "ru",
 ) {
   const accepted: T[] = [];
   const errors: string[] = [];
 
   for (const file of incoming) {
-    const validation = validateUpload(file);
+    const validation = validateUpload(file, locale);
     if (validation.ok) accepted.push(file);
     else errors.push(`${file.name}: ${validation.error}`);
   }
 
   const availableSlots = Math.max(0, MAX_FILES - current.length);
   if (accepted.length > availableSlots) {
-    errors.push(`Можно добавить не более ${MAX_FILES} файлов`);
+    errors.push(getMessages(locale).newCase.uploadValidation.maxFiles.replace("{count}", String(MAX_FILES)));
   }
 
   return {
