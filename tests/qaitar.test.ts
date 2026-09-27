@@ -733,6 +733,72 @@ test("upserts cases without duplicating ids and removes only the selected case",
   assert.equal(removedActive.activeCaseId, "case-2");
 });
 
+test("active case switching and new draft preserves ordered case history", async () => {
+  const history = await import("../lib/case-history.ts");
+  const older = { ...history.createEmptyCase("older"), updatedAt: "2026-09-20T10:00:00.000Z" };
+  const newer = { ...history.createEmptyCase("newer"), updatedAt: "2026-09-25T10:00:00.000Z" };
+  const collection = history.upsertCase(history.upsertCase({ version: 2, activeCaseId: null, cases: [] }, older), newer);
+  assert.deepEqual(collection.cases.map((item) => item.id), ["newer", "older"]);
+
+  const activated = history.activateCase(collection, "older");
+  assert.equal(activated.activeCaseId, "older");
+  assert.deepEqual(activated.cases.map((item) => item.id), ["newer", "older"]);
+  assert.deepEqual(history.activateCase(activated, "missing"), activated);
+
+  const afterDelete = history.removeCase(activated, "older");
+  assert.equal(afterDelete.activeCaseId, "newer");
+  assert.deepEqual(afterDelete.cases.map((item) => item.id), ["newer"]);
+
+  const withDraft = history.upsertCase(afterDelete, history.createEmptyCase("draft-2"));
+  assert.deepEqual(new Set(withDraft.cases.map((item) => item.id)), new Set(["newer", "draft-2"]));
+});
+
+test("legacy case migration writes v2 before removing the legacy case", async () => {
+  const { readCaseCollection } = await import("../lib/case-collection-storage.ts");
+  const { createEmptyCase } = await import("../lib/case-history.ts");
+  const entries = new Map<string, string>([["qaitar.current-case.v1", JSON.stringify(createEmptyCase("legacy"))]]);
+  const operations: string[] = [];
+  const storage = {
+    getItem: (key: string) => entries.get(key) ?? null,
+    setItem: (key: string, value: string) => { operations.push(`set:${key}`); entries.set(key, value); },
+    removeItem: (key: string) => { operations.push(`remove:${key}`); entries.delete(key); },
+  };
+
+  const restored = readCaseCollection(storage);
+  assert.equal(restored.activeCaseId, "legacy");
+  assert.deepEqual(operations, ["set:qaitar.cases.v2", "remove:qaitar.current-case.v1"]);
+  assert.equal(entries.has("qaitar.current-case.v1"), false);
+  assert.deepEqual(JSON.parse(entries.get("qaitar.cases.v2") ?? ""), restored);
+});
+
+test("failed legacy migration retains its original data", async () => {
+  const { readCaseCollection } = await import("../lib/case-collection-storage.ts");
+  const entries = new Map<string, string>([["qaitar.current-case.v1", "{bad json"]]);
+  const storage = {
+    getItem: (key: string) => entries.get(key) ?? null,
+    setItem: (key: string, value: string) => { entries.set(key, value); },
+    removeItem: (key: string) => { entries.delete(key); },
+  };
+
+  assert.deepEqual(readCaseCollection(storage), { version: 2, activeCaseId: null, cases: [] });
+  assert.equal(entries.get("qaitar.current-case.v1"), "{bad json");
+  assert.equal(entries.has("qaitar.cases.v2"), false);
+});
+
+test("legacy case remains usable when local storage cannot write the migration", async () => {
+  const { readCaseCollection } = await import("../lib/case-collection-storage.ts");
+  const { createEmptyCase } = await import("../lib/case-history.ts");
+  const entries = new Map<string, string>([["qaitar.current-case.v1", JSON.stringify(createEmptyCase("legacy"))]]);
+  const storage = {
+    getItem: (key: string) => entries.get(key) ?? null,
+    setItem: () => { throw new Error("storage full"); },
+    removeItem: (key: string) => { entries.delete(key); },
+  };
+
+  assert.equal(readCaseCollection(storage).activeCaseId, "legacy");
+  assert.equal(entries.has("qaitar.current-case.v1"), true);
+});
+
 test("malformed local case collections return empty data and keep the newest valid duplicate", async () => {
   const history = await import("../lib/case-history.ts");
   assert.deepEqual(history.restoreCaseCollection("{bad json", ""), { version: 2, activeCaseId: null, cases: [] });

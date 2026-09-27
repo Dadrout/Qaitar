@@ -1,13 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, Clock3, FileText, Plus } from "lucide-react";
-
-import { Button } from "../ui/button";
-import { Card, CardContent } from "../ui/card";
 import { applyReviewIssueEdit } from "../../lib/case-review.ts";
+import { readCaseCollection, writeCaseCollection } from "../../lib/case-collection-storage.ts";
+import { activateCase, createEmptyCase, removeCase, upsertCase, type CaseCollection } from "../../lib/case-history.ts";
 import { ClientRequestError, getClientErrorMessage } from "../../lib/client-errors.ts";
-import { restoreCaseSnapshot, serializeCaseSnapshot } from "../../lib/client-case.ts";
 import type { Locale } from "../../lib/i18n/index.ts";
 import { getBrowserSupabase } from "../../lib/supabase/browser.ts";
 import { requiresDirectUpload } from "../../lib/upload-strategy.ts";
@@ -16,6 +13,7 @@ import { resolveUploadType, validateProblemInput } from "../../lib/workflow.ts";
 import type { CaseAnalysis, EvidenceItem, LegalRecommendation, OfficialActionPlan, QaitarCase, SellerResponseAnalysis, SellerResponseInput } from "../../types/qaitar.ts";
 import { AnalysisProgress } from "./analysis-progress";
 import { AppShell } from "./app-shell";
+import { CaseList } from "./case-list";
 import { CaseReview } from "./case-review";
 import { ClaimEditor, type ConsumerForm } from "./claim-editor";
 import { DocumentWorkspace } from "./document-workspace";
@@ -26,24 +24,6 @@ import { SellerResponse } from "./seller-response";
 
 type View = "workflow" | "cases" | "document";
 type BusyPhase = "analysis" | "legal" | "response" | null;
-const STORAGE_KEY = "qaitar.current-case.v1";
-
-const emptyCase = (): QaitarCase => ({
-  id: "draft",
-  state: "NEW_CASE",
-  problemType: null,
-  problemDescription: "",
-  demo: false,
-  evidence: [],
-  analysis: null,
-  recommendation: null,
-  claim: null,
-  claimSentAt: null,
-  sellerResponseInput: null,
-  sellerResponse: null,
-  officialActionPlan: null,
-  updatedAt: new Date().toISOString(),
-});
 
 function evidenceId(file: File) {
   return `${file.name}-${file.size}-${file.lastModified}`;
@@ -72,7 +52,14 @@ export function QaitarApp() {
 function QaitarAppContent() {
   const { locale, messages } = useLanguage();
   const [view, setView] = useState<View>("workflow");
-  const [caseData, setCaseData] = useState<QaitarCase>(emptyCase);
+  const [caseData, setCaseData] = useState<QaitarCase>(() => createEmptyCase("draft"));
+  const caseDataRef = useRef(caseData);
+  const [collection, setCollection] = useState<CaseCollection>({ version: 2, activeCaseId: null, cases: [] });
+  const collectionRef = useRef(collection);
+  const [hydrated, setHydrated] = useState(false);
+  const caseFiles = useRef(new Map<string, File[]>());
+  const caseResponseDrafts = useRef(new Map<string, SellerResponseDrafts>());
+  const caseSentDateDrafts = useRef(new Map<string, string>());
   const demo = caseData.demo;
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState<BusyPhase>(null);
@@ -85,35 +72,89 @@ function QaitarAppContent() {
   const responseDraft = responseDrafts[responseMode];
 
   useEffect(() => {
-    const saved = restoreCaseSnapshot(window.localStorage.getItem(STORAGE_KEY) ?? "");
     const timeout = window.setTimeout(() => {
-      if (saved && saved.state !== "NEW_CASE" && saved.state !== "FILES_UPLOADED") {
-        setCaseData(saved.state === "SELLER_RESPONSE_UPLOADED" ? { ...saved, state: "WAITING_FOR_RESPONSE" } : saved);
-        setClaimSentDateDraft(saved.claimSentAt ?? "");
-        setResponseDrafts(emptySellerResponseDrafts(saved.claimSentAt ?? ""));
-      }
+      const restored = readCaseCollection(window.localStorage);
+      const active = restored.cases.find((item) => item.id === restored.activeCaseId);
+      const selected = active?.state === "SELLER_RESPONSE_UPLOADED" ? { ...active, state: "WAITING_FOR_RESPONSE" as const } : active;
+      const nextCollection = selected && selected !== active ? upsertCase(restored, selected) : restored;
+      collectionRef.current = nextCollection;
+      setCollection(nextCollection);
+      const nextCase = selected ?? createEmptyCase(crypto.randomUUID());
+      caseDataRef.current = nextCase;
+      setCaseData(nextCase);
+      setClaimSentDateDraft(nextCase.claimSentAt ?? "");
+      setResponseDrafts(emptySellerResponseDrafts(nextCase.claimSentAt ?? ""));
+      setHydrated(true);
     }, 0);
     return () => window.clearTimeout(timeout);
   }, []);
 
   useEffect(() => {
-    if (caseData.state !== "NEW_CASE" && caseData.state !== "FILES_UPLOADED") {
-      window.localStorage.setItem(STORAGE_KEY, serializeCaseSnapshot(caseData));
-    }
-  }, [caseData]);
-
-  const savedCaseExists = caseData.state !== "NEW_CASE";
+    if (hydrated) writeCaseCollection(window.localStorage, collection);
+  }, [collection, hydrated]);
   const evidence = useMemo<EvidenceItem[]>(() => files.map((file) => ({
     id: evidenceId(file), name: file.name, size: file.size, mimeType: file.type,
     detectedType: detectType(file.name, locale), status: "ready",
   })), [files, locale]);
 
   function updateCase(updates: Partial<QaitarCase>) {
-    setCaseData((current) => ({ ...current, ...updates, updatedAt: new Date().toISOString() }));
+    const current = caseDataRef.current;
+    const next = { ...current, ...updates, updatedAt: new Date().toISOString() };
+    const base = next.id === current.id ? collectionRef.current : removeCase(collectionRef.current, current.id);
+    commitCase(next, base);
+  }
+
+  function commitCase(next: QaitarCase, base = collectionRef.current) {
+    caseDataRef.current = next;
+    setCaseData(next);
+    const updated = upsertCase(base, next);
+    collectionRef.current = updated;
+    setCollection(updated);
+  }
+
+  function resetTransientCaseState(next: QaitarCase, preserveCurrent = true) {
+    if (preserveCurrent) {
+      caseResponseDrafts.current.set(caseDataRef.current.id, responseDrafts);
+      caseSentDateDrafts.current.set(caseDataRef.current.id, claimSentDateDraft);
+    }
+    caseDataRef.current = next;
+    setCaseData(next);
+    setFiles(caseFiles.current.get(next.id) ?? []);
+    setResponseOpen(false);
+    setClaimSentDateDraft(caseSentDateDrafts.current.get(next.id) ?? next.claimSentAt ?? "");
+    setResponseMode("file");
+    setResponseDrafts(caseResponseDrafts.current.get(next.id) ?? emptySellerResponseDrafts(next.claimSentAt ?? ""));
+    setError(null);
+  }
+
+  function openCase(caseId: string) {
+    const next = collectionRef.current.cases.find((item) => item.id === caseId);
+    if (!next) return;
+    const activated = activateCase(collectionRef.current, caseId);
+    collectionRef.current = activated;
+    setCollection(activated);
+    resetTransientCaseState(next);
+    setView("workflow");
+  }
+
+  function deleteCase(caseId: string) {
+    if (!window.confirm(messages.cases.deleteConfirm)) return;
+    const updated = removeCase(collectionRef.current, caseId);
+    if (updated === collectionRef.current) return;
+    collectionRef.current = updated;
+    setCollection(updated);
+    caseFiles.current.delete(caseId);
+    caseResponseDrafts.current.delete(caseId);
+    caseSentDateDrafts.current.delete(caseId);
+    if (caseDataRef.current.id === caseId) {
+      const next = updated.cases.find((item) => item.id === updated.activeCaseId) ?? createEmptyCase(crypto.randomUUID());
+      resetTransientCaseState(next, false);
+    }
   }
 
   function chooseFiles(nextFiles: File[]) {
     setFiles(nextFiles);
+    caseFiles.current.set(caseDataRef.current.id, nextFiles);
     updateCase({ demo: false, evidence: nextFiles.map((file) => ({ id: evidenceId(file), name: file.name, size: file.size, mimeType: file.type, detectedType: detectType(file.name, locale), status: "ready" })), state: nextFiles.length ? "FILES_UPLOADED" : "NEW_CASE" });
     setError(null);
   }
@@ -124,6 +165,7 @@ function QaitarAppContent() {
       new File(["Qaitar demo seller chat"], "seller-chat.png", { type: "image/png", lastModified: 2 }),
     ];
     setFiles(demoFiles); setError(null);
+    caseFiles.current.set(caseDataRef.current.id, demoFiles);
     updateCase({ demo: true, problemType: "defective_product", evidence: demoFiles.map((file) => ({ id: evidenceId(file), name: file.name, size: file.size, mimeType: file.type, detectedType: detectType(file.name, locale), status: "ready" })), state: "FILES_UPLOADED" });
   }
 
@@ -272,13 +314,26 @@ function QaitarAppContent() {
   }
 
   function resetCase() {
-    if (savedCaseExists && !window.confirm(messages.common.newCaseConfirm)) return;
-    setCaseData(emptyCase()); setFiles([]); setResponseOpen(false); setClaimSentDateDraft(""); setResponseMode("file"); setResponseDrafts(emptySellerResponseDrafts()); setError(null); setView("workflow"); window.localStorage.removeItem(STORAGE_KEY);
+    resetTransientCaseState(createEmptyCase(crypto.randomUUID()));
+    setView("workflow");
+  }
+
+  function addDocumentToNewCase(file: File) {
+    const next = {
+      ...createEmptyCase(crypto.randomUUID()),
+      state: "FILES_UPLOADED" as const,
+      evidence: [{ id: evidenceId(file), name: file.name, size: file.size, mimeType: file.type, detectedType: detectType(file.name, locale), status: "ready" as const }],
+    };
+    resetTransientCaseState(next);
+    caseFiles.current.set(next.id, [file]);
+    setFiles([file]);
+    commitCase(next);
+    setView("workflow");
   }
 
   return (
     <AppShell view={view} state={caseData.state} onView={setView} onNew={resetCase}>
-      {busy ? <AnalysisProgress phase={busy} /> : view === "cases" ? <CasesView caseData={caseData} onContinue={() => setView("workflow")} onNew={resetCase} /> : view === "document" ? <DocumentWorkspace onAddToCase={(file) => { setCaseData(emptyCase()); setFiles([file]); setView("workflow"); setCaseData((current) => ({ ...current, state: "FILES_UPLOADED", evidence: [{ id: evidenceId(file), name: file.name, size: file.size, mimeType: file.type, detectedType: detectType(file.name, locale), status: "ready" }] })); }} /> : (
+      {busy ? <AnalysisProgress phase={busy} /> : view === "cases" ? <CaseList cases={collection.cases} onContinue={openCase} onDelete={deleteCase} onNew={resetCase} /> : view === "document" ? <DocumentWorkspace onAddToCase={addDocumentToNewCase} /> : (
         <>
           {error && caseData.state !== "NEW_CASE" && caseData.state !== "FILES_UPLOADED" && <div className="mx-auto mt-5 max-w-4xl px-4"><p role="alert" className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</p></div>}
           {(caseData.state === "NEW_CASE" || caseData.state === "FILES_UPLOADED") && <NewCase files={files} evidence={evidence} problemType={caseData.problemType} problemDescription={caseData.problemDescription} error={error} onFiles={chooseFiles} onRemove={(id) => chooseFiles(files.filter((file) => evidenceId(file) !== id))} onProblem={(problemType) => updateCase({ problemType })} onProblemDescription={(problemDescription) => updateCase({ problemDescription })} onAnalyze={analyze} onDemo={addDemo} />}
@@ -292,10 +347,4 @@ function QaitarAppContent() {
       <footer className="mx-auto max-w-5xl px-6 pb-8 pt-4 text-center text-xs leading-5 text-muted-foreground">{messages.disclaimer}</footer>
     </AppShell>
   );
-}
-
-function CasesView({ caseData, onContinue, onNew }: { caseData: QaitarCase; onContinue: () => void; onNew: () => void }) {
-  const { locale, messages } = useLanguage();
-  const hasCase = caseData.state !== "NEW_CASE";
-  return <section className="px-4 py-8 sm:px-7 lg:px-12 lg:py-11"><div className="mx-auto max-w-4xl"><div className="flex items-center justify-between gap-4"><h1 className="text-3xl font-bold tracking-[-.04em]">{messages.cases.title}</h1><Button onClick={onNew} className="rounded-xl"><Plus /> {messages.cases.start}</Button></div>{hasCase ? <Card className="mt-7 rounded-[24px] py-0 shadow-none"><CardContent className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center"><span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary"><FileText /></span><div className="min-w-0 flex-1"><p className="font-semibold">{caseData.analysis?.product.name ?? messages.cases.newRequest}</p><p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{caseData.analysis?.summary ?? messages.cases.documentsAdded}</p><p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground"><Clock3 className="size-3.5" /> {messages.cases.updated} {new Intl.DateTimeFormat({ ru: "ru-RU", kk: "kk-KZ", en: "en-US" }[locale], { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }).format(new Date(caseData.updatedAt))}</p></div><Button onClick={onContinue} variant="outline" className="rounded-xl">{messages.cases.continue} <ArrowRight /></Button></CardContent></Card> : <Card className="mt-7 rounded-[24px] py-0 shadow-none"><CardContent className="p-12 text-center text-muted-foreground">{messages.cases.empty}</CardContent></Card>}</div></section>;
 }

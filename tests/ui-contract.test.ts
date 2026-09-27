@@ -25,6 +25,48 @@ test("renders the compact shell and evidence-to-action tagline", () => {
   assert.match(shell, /qaitar-logo\.png/);
 });
 
+test("case list shows ordered drafts with descriptions, stages, and separate actions", async () => {
+  const React = await import("react");
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  const { LanguageProvider } = await importComponent("../components/qaitar/language-provider.tsx", import.meta.url) as typeof import("../components/qaitar/language-provider.tsx");
+  const { CaseList } = await importComponent("../components/qaitar/case-list.tsx", import.meta.url) as typeof import("../components/qaitar/case-list.tsx");
+  const { createEmptyCase } = await import("../lib/case-history.ts");
+  const cases = [
+    { ...createEmptyCase("older"), state: "WAITING_FOR_RESPONSE" as const, problemDescription: "Refund still missing", updatedAt: "2026-09-20T10:00:00.000Z" },
+    { ...createEmptyCase("newer"), problemDescription: "Laptop screen flickers", updatedAt: "2026-09-25T10:00:00.000Z" },
+  ];
+  const html = renderToStaticMarkup(React.createElement(LanguageProvider, null,
+    React.createElement(CaseList, { cases, onContinue() {}, onDelete() {}, onNew() {} })));
+  assert.match(html, /Laptop screen flickers/);
+  assert.match(html, /Refund still missing/);
+  assert.ok(html.indexOf("Laptop screen flickers") < html.indexOf("Refund still missing"));
+  assert.match(html, /Ожидается ответ продавца/);
+  assert.equal((html.match(/Продолжить дело/g) ?? []).length, 2);
+  assert.equal((html.match(/Удалить дело/g) ?? []).length, 2);
+});
+
+test("case list keeps its empty state until a new case is requested", async () => {
+  const React = await import("react");
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  const { LanguageProvider } = await importComponent("../components/qaitar/language-provider.tsx", import.meta.url) as typeof import("../components/qaitar/language-provider.tsx");
+  const { CaseList } = await importComponent("../components/qaitar/case-list.tsx", import.meta.url) as typeof import("../components/qaitar/case-list.tsx");
+  const html = renderToStaticMarkup(React.createElement(LanguageProvider, null,
+    React.createElement(CaseList, { cases: [], onContinue() {}, onDelete() {}, onNew() {} })));
+  assert.match(html, /Здесь появятся сохранённые дела/);
+  assert.doesNotMatch(html, /Продолжить дело|Удалить дело/);
+});
+
+test("resolved case list shows the final workflow stage", async () => {
+  const React = await import("react");
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  const { LanguageProvider } = await importComponent("../components/qaitar/language-provider.tsx", import.meta.url) as typeof import("../components/qaitar/language-provider.tsx");
+  const { CaseList } = await importComponent("../components/qaitar/case-list.tsx", import.meta.url) as typeof import("../components/qaitar/case-list.tsx");
+  const { createEmptyCase } = await import("../lib/case-history.ts");
+  const html = renderToStaticMarkup(React.createElement(LanguageProvider, null,
+    React.createElement(CaseList, { cases: [{ ...createEmptyCase("done"), state: "RESOLVED" }], onContinue() {}, onDelete() {}, onNew() {} })));
+  assert.match(html, /Келесі ресми қадам|Следующий официальный шаг/);
+});
+
 test("renders distinct completed, current, and upcoming timeline states", () => {
   const timeline = readSource("components/qaitar/case-timeline.tsx");
   assert.match(timeline, /aria-current/);

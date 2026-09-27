@@ -156,6 +156,11 @@ export function upsertCase(collection: CaseCollection, caseData: QaitarCase): Ca
   };
 }
 
+export function activateCase(collection: CaseCollection, caseId: string): CaseCollection {
+  if (!collection.cases.some((item) => item.id === caseId)) return collection;
+  return { ...collection, activeCaseId: caseId };
+}
+
 export function removeCase(collection: CaseCollection, caseId: string): CaseCollection {
   const cases = collection.cases.filter((item) => item.id !== caseId);
   if (cases.length === collection.cases.length) return collection;

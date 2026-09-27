@@ -45,7 +45,7 @@ export function AppShell({
           </div>
         </div>
       </header>
-      <CaseTimeline state={state} compact />
+      {view === "workflow" && <CaseTimeline state={state} compact />}
       <div className="mx-auto grid max-w-[1280px] grid-cols-1 lg:grid-cols-[232px_minmax(0,1fr)]">
         <aside className="sticky top-16 hidden h-[calc(100vh-64px)] border-r border-border/80 bg-card px-4 py-6 lg:flex lg:flex-col">
           <nav className="space-y-1">
