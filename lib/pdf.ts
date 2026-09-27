@@ -15,6 +15,21 @@ function wrapText(context: CanvasRenderingContext2D, text: string, maxWidth: num
   const lines: string[] = [];
   let current = "";
   for (const word of words) {
+    if (context.measureText(word).width > maxWidth) {
+      if (current) lines.push(current);
+      let fragment = "";
+      for (const character of word) {
+        const candidate = fragment + character;
+        if (fragment && context.measureText(candidate).width > maxWidth) {
+          lines.push(fragment);
+          fragment = character;
+        } else {
+          fragment = candidate;
+        }
+      }
+      current = fragment;
+      continue;
+    }
     const candidate = current ? `${current} ${word}` : word;
     if (context.measureText(candidate).width <= maxWidth || !current) {
       current = candidate;

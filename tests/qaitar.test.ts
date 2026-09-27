@@ -900,6 +900,34 @@ test("official appeal PDF uses the edited text, appeal title, and separate filen
   }
 });
 
+test("official appeal PDF wraps a long submission reference without clipping", async () => {
+  const { downloadTextPdf } = await import("../lib/pdf.ts");
+  const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/nwAAAABJRU5ErkJggg==";
+  const url = `https://eotinish.kz/appeal/${"A".repeat(260)}`;
+  const lines: string[] = [];
+  const context = { measureText: (value: string) => ({ width: value.length * 10 }), fillRect() {}, fillText: (value: string) => { lines.push(value); }, fillStyle: "", font: "" };
+  const previousDocument = globalThis.document;
+  const previousWindow = globalThis.window;
+  const previousCreate = URL.createObjectURL;
+  const previousRevoke = URL.revokeObjectURL;
+  try {
+    globalThis.document = { createElement: (tag: string) => tag === "canvas" ? { width: 0, height: 0, getContext: () => context, toDataURL: () => png } : { href: "", download: "", click() {}, remove() {} }, body: { appendChild() {} } } as unknown as Document;
+    globalThis.window = { setTimeout: () => 0 } as unknown as Window & typeof globalThis;
+    URL.createObjectURL = () => "blob:test";
+    URL.revokeObjectURL = () => {};
+    await downloadTextPdf(url, { fileName: "appeal.pdf", title: "Обращение потребителя" });
+    const referenceLines = lines.filter((line) => line.includes("https://") || /^A+$/.test(line));
+    assert.equal(referenceLines.join(""), url);
+    assert.ok(referenceLines.length > 1);
+    assert.ok(referenceLines.every((line) => context.measureText(line).width <= 1020));
+  } finally {
+    globalThis.document = previousDocument;
+    globalThis.window = previousWindow;
+    URL.createObjectURL = previousCreate;
+    URL.revokeObjectURL = previousRevoke;
+  }
+});
+
 test("seller response drafts retain each mode value while switching", async () => {
   const { emptySellerResponseDrafts, saveSellerResponseDraft } = await import("../lib/seller-response-input.ts");
   const file = new File(["reply"], "reply.pdf", { type: "application/pdf" });
