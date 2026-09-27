@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { applyReviewIssueEdit } from "../../lib/case-review.ts";
-import { readCaseCollection, writeCaseCollection } from "../../lib/case-collection-storage.ts";
+import { acquireCaseStorage, readCaseCollection, writeCaseCollection, type CaseStorage } from "../../lib/case-collection-storage.ts";
 import { activateCase, createEmptyCase, getActiveCase, removeCase, updateCaseById, upsertCase, type CaseCollection } from "../../lib/case-history.ts";
 import { ClientRequestError, getClientErrorMessage } from "../../lib/client-errors.ts";
 import type { Locale } from "../../lib/i18n/index.ts";
@@ -56,6 +56,7 @@ function QaitarAppContent() {
   const caseDataRef = useRef(caseData);
   const [collection, setCollection] = useState<CaseCollection>({ version: 2, activeCaseId: null, cases: [] });
   const collectionRef = useRef(collection);
+  const storageRef = useRef<CaseStorage | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [persistenceWarning, setPersistenceWarning] = useState(false);
   const caseFiles = useRef(new Map<string, File[]>());
@@ -76,7 +77,12 @@ function QaitarAppContent() {
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
-      const restored = readCaseCollection(window.localStorage, () => setPersistenceWarning(true));
+      const storage = acquireCaseStorage(() => window.localStorage, () => setPersistenceWarning(true));
+      storageRef.current = storage;
+      const restored = readCaseCollection(storage, () => {
+        storageRef.current = null;
+        setPersistenceWarning(true);
+      });
       const active = getActiveCase(restored);
       const selected = active?.state === "SELLER_RESPONSE_UPLOADED" ? { ...active, state: "WAITING_FOR_RESPONSE" as const } : active;
       const nextCollection = selected && selected !== active ? upsertCase(restored, selected) : restored;
@@ -95,7 +101,7 @@ function QaitarAppContent() {
 
   useEffect(() => {
     if (hydrated) {
-      const saved = writeCaseCollection(window.localStorage, collection);
+      const saved = writeCaseCollection(storageRef.current, collection);
       queueMicrotask(() => setPersistenceWarning(!saved));
     }
   }, [collection, hydrated]);

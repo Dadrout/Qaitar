@@ -852,6 +852,64 @@ test("failed collection writes report failure without interrupting the in-memory
   assert.equal(entries.get("qaitar.current-case.v1"), legacy);
 });
 
+test("unavailable browser storage is acquired once without crashing or writing", async () => {
+  const { acquireCaseStorage, readCaseCollection, writeCaseCollection } = await import("../lib/case-collection-storage.ts");
+  let acquisitions = 0;
+  let warnings = 0;
+  const browser = {
+    get localStorage(): Storage {
+      acquisitions += 1;
+      throw new Error("localStorage access denied");
+    },
+  };
+  const storage = acquireCaseStorage(() => browser.localStorage, () => { warnings += 1; });
+
+  assert.equal(storage, null);
+  assert.deepEqual(readCaseCollection(storage), { version: 2, activeCaseId: null, cases: [] });
+  assert.equal(writeCaseCollection(storage, { version: 2, activeCaseId: null, cases: [] }), false);
+  assert.equal(acquisitions, 1);
+  assert.equal(warnings, 1);
+});
+
+test("failed current collection read still restores legacy without overwriting unknown current data", async () => {
+  const { readCaseCollection } = await import("../lib/case-collection-storage.ts");
+  const { createEmptyCase } = await import("../lib/case-history.ts");
+  const legacy = JSON.stringify(createEmptyCase("legacy"));
+  const operations: string[] = [];
+  let warnings = 0;
+  const storage = {
+    getItem: (key: string) => {
+      if (key === "qaitar.cases.v2") throw new Error("read denied");
+      return legacy;
+    },
+    setItem: () => { operations.push("set"); },
+    removeItem: () => { operations.push("remove"); },
+  };
+
+  const restored = readCaseCollection(storage, () => { warnings += 1; });
+  assert.equal(restored.activeCaseId, "legacy");
+  assert.deepEqual(operations, []);
+  assert.equal(warnings, 1);
+});
+
+test("failed legacy read still restores current collection and reports the warning", async () => {
+  const { readCaseCollection } = await import("../lib/case-collection-storage.ts");
+  const { createEmptyCase } = await import("../lib/case-history.ts");
+  const current = { version: 2, activeCaseId: "current", cases: [createEmptyCase("current")] };
+  let warnings = 0;
+  const storage = {
+    getItem: (key: string) => {
+      if (key === "qaitar.current-case.v1") throw new Error("read denied");
+      return JSON.stringify(current);
+    },
+    setItem: () => { throw new Error("should not migrate"); },
+    removeItem: () => { throw new Error("should not remove"); },
+  };
+
+  assert.deepEqual(readCaseCollection(storage, () => { warnings += 1; }), current);
+  assert.equal(warnings, 1);
+});
+
 test("malformed local case collections return empty data and keep the newest valid duplicate", async () => {
   const history = await import("../lib/case-history.ts");
   assert.deepEqual(history.restoreCaseCollection("{bad json", ""), { version: 2, activeCaseId: null, cases: [] });
