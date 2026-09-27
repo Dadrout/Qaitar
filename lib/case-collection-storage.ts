@@ -2,7 +2,7 @@ import { CASE_COLLECTION_KEY, LEGACY_CASE_KEY, restoreCaseCollection, type CaseC
 
 type CaseStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
-export function readCaseCollection(storage: CaseStorage): CaseCollection {
+export function readCaseCollection(storage: CaseStorage, onPersistenceError?: () => void): CaseCollection {
   const current = storage.getItem(CASE_COLLECTION_KEY);
   const legacy = storage.getItem(LEGACY_CASE_KEY);
   const collection = restoreCaseCollection(current ?? "", legacy ?? "");
@@ -11,12 +11,17 @@ export function readCaseCollection(storage: CaseStorage): CaseCollection {
       storage.setItem(CASE_COLLECTION_KEY, JSON.stringify(collection));
       storage.removeItem(LEGACY_CASE_KEY);
     } catch {
-      // Keep the legacy data when browser storage is unavailable or full.
+      onPersistenceError?.();
     }
   }
   return collection;
 }
 
-export function writeCaseCollection(storage: CaseStorage, collection: CaseCollection): void {
-  storage.setItem(CASE_COLLECTION_KEY, JSON.stringify(collection));
+export function writeCaseCollection(storage: CaseStorage, collection: CaseCollection): boolean {
+  try {
+    storage.setItem(CASE_COLLECTION_KEY, JSON.stringify(collection));
+    return true;
+  } catch {
+    return false;
+  }
 }

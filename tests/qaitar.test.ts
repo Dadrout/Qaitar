@@ -799,6 +799,59 @@ test("legacy case remains usable when local storage cannot write the migration",
   assert.equal(entries.has("qaitar.current-case.v1"), true);
 });
 
+test("pending case result updates its origin after switching or starting a new draft", async () => {
+  const history = await import("../lib/case-history.ts");
+  const first = { ...history.createEmptyCase("origin"), problemDescription: "Original draft" };
+  const second = { ...history.createEmptyCase("selected"), problemDescription: "Selected draft" };
+  const both = history.upsertCase(history.upsertCase({ version: 2, activeCaseId: null, cases: [] }, first), second);
+
+  const switched = history.updateCaseById(both, "origin", { state: "DOCUMENTS_ANALYZED", claim: "origin result" });
+  assert.equal(switched.activeCaseId, "selected");
+  assert.equal(switched.cases.find((item) => item.id === "origin")?.claim, "origin result");
+  assert.equal(switched.cases.find((item) => item.id === "selected")?.claim, null);
+
+  const newDraft = history.createEmptyCase("new-unsaved");
+  const afterNew = history.updateCaseById(switched, "origin", { claim: "latest origin result" });
+  assert.equal(newDraft.claim, null);
+  assert.equal(afterNew.activeCaseId, "selected");
+  assert.equal(afterNew.cases.find((item) => item.id === "origin")?.claim, "latest origin result");
+});
+
+test("pending case completion cannot recreate a deleted origin or change another case", async () => {
+  const history = await import("../lib/case-history.ts");
+  const origin = history.createEmptyCase("origin");
+  const selected = history.createEmptyCase("selected");
+  const both = history.upsertCase(history.upsertCase({ version: 2, activeCaseId: null, cases: [] }, origin), selected);
+  const afterDelete = history.removeCase(both, "origin");
+  const lateSuccess = history.updateCaseById(afterDelete, "origin", { state: "CLAIM_GENERATED", claim: "late result" });
+  const lateErrorRollback = history.updateCaseById(afterDelete, "origin", { state: "WAITING_FOR_RESPONSE" });
+
+  assert.strictEqual(lateSuccess, afterDelete);
+  assert.strictEqual(lateErrorRollback, afterDelete);
+  assert.deepEqual(afterDelete.cases.map((item) => item.id), ["selected"]);
+  assert.equal(afterDelete.cases[0].state, "NEW_CASE");
+  assert.equal(history.getActiveCase(history.removeCase(afterDelete, "selected")), null);
+});
+
+test("failed collection writes report failure without interrupting the in-memory case", async () => {
+  const { readCaseCollection, writeCaseCollection } = await import("../lib/case-collection-storage.ts");
+  const { createEmptyCase } = await import("../lib/case-history.ts");
+  const legacy = JSON.stringify(createEmptyCase("legacy"));
+  const entries = new Map<string, string>([["qaitar.current-case.v1", legacy]]);
+  let failures = 0;
+  const storage = {
+    getItem: (key: string) => entries.get(key) ?? null,
+    setItem: () => { throw new Error("quota exceeded"); },
+    removeItem: (key: string) => { entries.delete(key); },
+  };
+
+  const restored = readCaseCollection(storage, () => { failures += 1; });
+  assert.equal(restored.activeCaseId, "legacy");
+  assert.equal(writeCaseCollection(storage, restored), false);
+  assert.equal(failures, 1);
+  assert.equal(entries.get("qaitar.current-case.v1"), legacy);
+});
+
 test("malformed local case collections return empty data and keep the newest valid duplicate", async () => {
   const history = await import("../lib/case-history.ts");
   assert.deepEqual(history.restoreCaseCollection("{bad json", ""), { version: 2, activeCaseId: null, cases: [] });

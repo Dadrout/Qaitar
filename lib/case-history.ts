@@ -161,6 +161,20 @@ export function activateCase(collection: CaseCollection, caseId: string): CaseCo
   return { ...collection, activeCaseId: caseId };
 }
 
+export function getActiveCase(collection: CaseCollection): QaitarCase | null {
+  return collection.cases.find((item) => item.id === collection.activeCaseId) ?? null;
+}
+
+export function updateCaseById(collection: CaseCollection, caseId: string, updates: Partial<QaitarCase>): CaseCollection {
+  const original = collection.cases.find((item) => item.id === caseId);
+  if (!original) return collection;
+  const next: QaitarCase = { ...original, ...updates, id: caseId, updatedAt: new Date().toISOString() };
+  return {
+    ...collection,
+    cases: sortCases(collection.cases.map((item) => item.id === caseId ? next : item)),
+  };
+}
+
 export function removeCase(collection: CaseCollection, caseId: string): CaseCollection {
   const cases = collection.cases.filter((item) => item.id !== caseId);
   if (cases.length === collection.cases.length) return collection;

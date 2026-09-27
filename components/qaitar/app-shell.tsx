@@ -18,7 +18,7 @@ export function AppShell({
 }: {
   children: React.ReactNode;
   view: View;
-  state: string;
+  state: string | null;
   onView: (view: View) => void;
   onNew: () => void;
 }) {
@@ -45,7 +45,7 @@ export function AppShell({
           </div>
         </div>
       </header>
-      {view === "workflow" && <CaseTimeline state={state} compact />}
+      {view === "workflow" && state && <CaseTimeline state={state} compact />}
       <div className="mx-auto grid max-w-[1280px] grid-cols-1 lg:grid-cols-[232px_minmax(0,1fr)]">
         <aside className="sticky top-16 hidden h-[calc(100vh-64px)] border-r border-border/80 bg-card px-4 py-6 lg:flex lg:flex-col">
           <nav className="space-y-1">
@@ -54,7 +54,7 @@ export function AppShell({
             <Button onClick={() => onView("document")} variant="ghost" className={`h-11 w-full justify-start rounded-xl px-3 ${view === "document" ? "bg-primary/[.07] text-primary shadow-[inset_0_0_0_1px_rgba(25,94,234,.12)] hover:bg-primary/10" : "text-muted-foreground"}`}><FileSearch /> {ru.nav.document}</Button>
           </nav>
           <div className="my-7 h-px bg-border" />
-          <CaseTimeline state={state} />
+          {view === "workflow" && state && <CaseTimeline state={state} />}
           <div className="mt-auto space-y-1">
             <div className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground"><Languages className="size-4" /> Русский</div>
           </div>
