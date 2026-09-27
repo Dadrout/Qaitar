@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { register } from "tsx/esm/api";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
+const importComponent = register({ namespace: "qaitar-ui-contract" }).import;
 export const readSource = (relativePath: string) =>
   readFileSync(new URL(relativePath, `file://${root}`), "utf8");
 
@@ -87,4 +89,73 @@ test("presents generated and incoming documents as actionable workflow artifacts
   assert.match(`${bureau}\n${copy}`, /Что это\?/);
   assert.match(`${bureau}\n${copy}`, /Что важно\?/);
   assert.match(`${bureau}\n${copy}`, /Что делать\?/);
+});
+
+test("official action workspace renders every ready-plan section and verified external channel", async () => {
+  const React = await import("react");
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  const { LanguageProvider } = await importComponent("../components/qaitar/language-provider.tsx", import.meta.url) as typeof import("../components/qaitar/language-provider.tsx");
+  const { OfficialActionPlan } = await importComponent("../components/qaitar/official-action-plan.tsx", import.meta.url) as typeof import("../components/qaitar/official-action-plan.tsx");
+  const sourceUrl = "https://www.gov.kz/situations/464/intro?lang=ru";
+  const plan = {
+    status: "ready", title: "Подайте официальное обращение",
+    authority: { name: "Департамент торговли и защиты прав потребителей", reason: "Рассматривает потребительские обращения", sourceUrl },
+    channels: [{ type: "eotinish", label: "Подать через eOtinish", url: "https://eotinish.kz", sourceUrl }],
+    deadline: { label: "Не позднее двух месяцев", date: null, explanation: "Срок обращения после претензии", sourceUrl },
+    steps: ["Подготовьте документы", "Проверьте текст", "Подайте обращение", "Сохраните номер"],
+    requiredAttachments: ["Копия претензии продавцу", "Ответ продавца"],
+    legalBasis: [{ lawName: "Закон РК", article: "42-5", explanation: "Порядок обращения", sourceUrl }],
+    appealText: "Прошу рассмотреть нарушение моих прав потребителя.", missingInformation: [], confidence: "high",
+  } as import("../types/qaitar.ts").OfficialActionPlan;
+  const html = renderToStaticMarkup(React.createElement(LanguageProvider, null,
+    React.createElement(OfficialActionPlan, { plan })));
+  assert.match(html, /Куда обратиться/);
+  assert.match(html, /Не позднее двух месяцев/);
+  assert.match(html, /Что приложить/);
+  assert.match(html, /Пошагово/);
+  assert.match(html, /Проект обращения/);
+  assert.match(html, /42-5/);
+  assert.match(html, /href="https:\/\/eotinish\.kz"/);
+  assert.match(html, /target="_blank"/);
+  assert.match(html, /rel="noreferrer"/);
+  assert.match(html, /Прошу рассмотреть нарушение моих прав потребителя/);
+});
+
+test("official action workspace with manual verification has no appeal or active action", async () => {
+  const React = await import("react");
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  const { LanguageProvider } = await importComponent("../components/qaitar/language-provider.tsx", import.meta.url) as typeof import("../components/qaitar/language-provider.tsx");
+  const { OfficialActionPlan } = await importComponent("../components/qaitar/official-action-plan.tsx", import.meta.url) as typeof import("../components/qaitar/official-action-plan.tsx");
+  const plan = {
+    status: "manual_verification_required", title: "Нужна проверка",
+    authority: { name: null, reason: "Источник не найден", sourceUrl: null }, channels: [],
+    deadline: { label: "Проверьте срок", date: null, explanation: "Дата получения не подтверждена", sourceUrl: null },
+    steps: [], requiredAttachments: [], legalBasis: [], appealText: null,
+    missingInformation: ["Подтверждение получения претензии продавцом"], confidence: "low",
+  } as import("../types/qaitar.ts").OfficialActionPlan;
+  const html = renderToStaticMarkup(React.createElement(LanguageProvider, null,
+    React.createElement(OfficialActionPlan, { plan })));
+  assert.match(html, /Требуется ручная проверка/);
+  assert.match(html, /Подтверждение получения претензии продавцом/);
+  assert.doesNotMatch(html, /<button|href="https:\/\/eotinish\.kz"|Проект обращения/);
+});
+
+test("seller outcomes show accepted follow-through and only the seller-requested items", async () => {
+  const React = await import("react");
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  const { LanguageProvider } = await importComponent("../components/qaitar/language-provider.tsx", import.meta.url) as typeof import("../components/qaitar/language-provider.tsx");
+  const { SellerResponse } = await importComponent("../components/qaitar/seller-response.tsx", import.meta.url) as typeof import("../components/qaitar/seller-response.tsx");
+  const base: Omit<import("../types/qaitar.ts").SellerResponseAnalysis, "responseType"> = { sellerReason: null, summary: "Позиция продавца", newFacts: [], requiresLegalReview: false };
+  const props = { recommendation: null, plan: null, state: "SELLER_ACCEPTED" as const, draft: { mode: "text" as const, text: "" }, onDraftChange() {}, onModeChange() {}, onAnalyze() {}, onDemo() {}, onMarkResolved() {}, error: null };
+  const render = (responseType: "accepted" | "additional_information_requested", recommendation: import("../types/qaitar.ts").LegalRecommendation | null = null) => renderToStaticMarkup(React.createElement(LanguageProvider, null,
+    React.createElement(SellerResponse, { ...props, result: { ...base, responseType }, recommendation })));
+  const accepted = render("accepted");
+  assert.match(accepted, /Проверьте возврат или замену/);
+  assert.match(accepted, /Отметить дело решённым/);
+  assert.doesNotMatch(accepted, /Проект обращения/);
+  const requested = render("additional_information_requested", {
+    status: "additional_information_required", caseType: "defective_product", title: "Уточнение", summary: "Нужны данные", reasoning: "Продавец запросил данные", recommendedAction: "provide_document", legalBasis: [], missingInformation: ["Серийный номер товара"], confidence: "medium",
+  });
+  assert.match(requested, /Серийный номер товара/);
+  assert.doesNotMatch(requested, /Копия претензии продавцу|Проект обращения/);
 });

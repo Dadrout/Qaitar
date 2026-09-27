@@ -868,6 +868,38 @@ test("seller response state advances only when an official plan is ready", async
   assert.equal(sellerResponseNextState({ responseType: "unclear" }, { status: "ready" }), "SELLER_REJECTED");
 });
 
+test("official appeal PDF uses the edited text, appeal title, and separate filename", async () => {
+  const { downloadTextPdf } = await import("../lib/pdf.ts");
+  const { PDFDocument } = await import("pdf-lib");
+  const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/nwAAAABJRU5ErkJggg==";
+  const drawn: string[] = [];
+  const anchor = { href: "", download: "", click() {}, remove() {} };
+  const context = { measureText: (value: string) => ({ width: value.length * 10 }), fillRect() {}, fillText: (value: string) => { drawn.push(value); }, fillStyle: "", font: "" };
+  const previousDocument = globalThis.document;
+  const previousWindow = globalThis.window;
+  const previousCreate = URL.createObjectURL;
+  const previousRevoke = URL.revokeObjectURL;
+  let savedBlob: Blob | null = null;
+  try {
+    globalThis.document = { createElement: (tag: string) => tag === "canvas" ? { width: 0, height: 0, getContext: () => context, toDataURL: () => png } : anchor, body: { appendChild() {} } } as unknown as Document;
+    globalThis.window = { setTimeout: () => 0 } as unknown as Window & typeof globalThis;
+    URL.createObjectURL = (blob: Blob) => { savedBlob = blob; return "blob:test"; };
+    URL.revokeObjectURL = () => {};
+    await downloadTextPdf("Edited official appeal", { fileName: "qaitar-official-appeal.pdf", title: "Обращение потребителя" });
+    assert.equal(anchor.download, "qaitar-official-appeal.pdf");
+    assert.ok(drawn.includes("Edited official appeal"));
+    const captured = savedBlob as unknown as Blob;
+    assert.ok(captured);
+    const pdf = await PDFDocument.load(await captured.arrayBuffer());
+    assert.equal(pdf.getTitle(), "Обращение потребителя");
+  } finally {
+    globalThis.document = previousDocument;
+    globalThis.window = previousWindow;
+    URL.createObjectURL = previousCreate;
+    URL.revokeObjectURL = previousRevoke;
+  }
+});
+
 test("seller response drafts retain each mode value while switching", async () => {
   const { emptySellerResponseDrafts, saveSellerResponseDraft } = await import("../lib/seller-response-input.ts");
   const file = new File(["reply"], "reply.pdf", { type: "application/pdf" });
