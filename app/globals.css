@@ -81,8 +81,8 @@ html { scroll-behavior: smooth; }
 .landing-process { padding: 102px 0 110px; scroll-margin-top: 24px; }
 .landing-process > .landing-container > h2 { margin-bottom: 62px; }
 .landing-step { border: 1px solid #dfe1e7; background: #fff; padding: 42px; }
-.landing-step > span, .landing-step > div > span { display: block; margin-bottom: 23px; color: #686a73; font-size: 11px; font-weight: 850; text-transform: uppercase; }
-.landing-step > div > span::after { display: inline-block; width: 34px; height: 2px; margin: 0 0 3px 10px; background: var(--landing-blue); content: ""; }
+.landing-step > span, .landing-step-featured > div:first-child > span { display: block; margin-bottom: 23px; color: #686a73; font-size: 11px; font-weight: 850; text-transform: uppercase; }
+.landing-step-featured > div:first-child > span::after { display: inline-block; width: 34px; height: 2px; margin: 0 0 3px 10px; background: var(--landing-blue); content: ""; }
 .landing-step h3 { margin: 0 0 25px; font-size: 26px; line-height: 1.25; letter-spacing: -.025em; }
 .landing-step-featured { display: grid; grid-template-columns: .95fr 1.05fr; gap: 70px; align-items: center; }
 .landing-step-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-top: 28px; }
@@ -91,7 +91,7 @@ html { scroll-behavior: smooth; }
 .landing-step li i { width: 7px; height: 7px; border-radius: 50%; background: var(--landing-blue); }
 .landing-result { display: grid; gap: 8px; margin-top: 26px; background: var(--landing-blue); padding: 24px; color: #fff; }
 .landing-result strong { margin-bottom: 2px; font-size: 11px; text-transform: uppercase; }
-.landing-result span { display: flex; align-items: center; gap: 7px; font-size: 11px; }
+.landing-result span { color: #fff; display: flex; align-items: center; gap: 7px; margin-bottom: 0; font-size: 11px; text-transform: none; }
 .landing-result svg { width: 12px; height: 12px; }
 
 .landing-preview { position: relative; min-height: 330px; overflow: hidden; background: radial-gradient(circle at 23% 22%, #845535, #2c211d 46%, #121213 100%); }
