@@ -25,6 +25,7 @@ function errorStatus(error: unknown) {
 
 function isTransientAIError(error: unknown) {
   if (error instanceof Error && error.name === "AbortError") return true;
+  if (error instanceof Error && error.message === "Некорректный ответ AI") return true;
   const status = errorStatus(error);
   return status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
 }

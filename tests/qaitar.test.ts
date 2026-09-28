@@ -534,6 +534,24 @@ test("falls back to a secondary model when the primary remains overloaded", asyn
   assert.deepEqual(attemptedModels, ["primary-model", "fallback-model"]);
 });
 
+test("retries malformed structured output before falling back to a secondary model", async () => {
+  const gemini = await import("../lib/ai/gemini.ts");
+  const attemptedModels: string[] = [];
+
+  const result = await gemini.withAIModelFallback(
+    ["primary-model", "fallback-model"],
+    async (model) => {
+      attemptedModels.push(model);
+      if (model === "primary-model") throw new Error("Некорректный ответ AI");
+      return "analysis-ready";
+    },
+    [0],
+  );
+
+  assert.equal(result, "analysis-ready");
+  assert.deepEqual(attemptedModels, ["primary-model", "primary-model", "fallback-model"]);
+});
+
 test("falls back immediately when an AI model exceeds its request timeout", async () => {
   const gemini = await import("../lib/ai/gemini.ts");
   const attemptedModels: string[] = [];
