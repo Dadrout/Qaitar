@@ -3,8 +3,8 @@ import type { ZodType } from "zod";
 
 export const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-3.8-flash";
 export const GEMINI_FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL ?? "gemini-3.5-flash-lite";
-export const GEMINI_ANALYSIS_MODEL = process.env.GEMINI_ANALYSIS_MODEL ?? "gemini-2.5-flash-lite";
-export const GEMINI_ANALYSIS_FALLBACK_MODEL = process.env.GEMINI_ANALYSIS_FALLBACK_MODEL ?? "gemini-3.5-flash";
+export const GEMINI_ANALYSIS_MODEL = process.env.GEMINI_ANALYSIS_MODEL ?? "gemini-3.5-flash-lite";
+export const GEMINI_ANALYSIS_FALLBACK_MODEL = process.env.GEMINI_ANALYSIS_FALLBACK_MODEL ?? "gemini-3.8-flash";
 export const GEMINI_EMBEDDING_MODEL = process.env.GEMINI_EMBEDDING_MODEL ?? "gemini-embedding-2";
 
 let client: GoogleGenAI | null = null;

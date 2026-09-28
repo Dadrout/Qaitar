@@ -513,6 +513,13 @@ test("explains provider overload without blaming document quality", async () => 
   );
 });
 
+test("uses current-capacity Gemini models for document analysis", async () => {
+  const gemini = await import("../lib/ai/gemini.ts");
+
+  assert.equal(gemini.GEMINI_ANALYSIS_MODEL, "gemini-3.5-flash-lite");
+  assert.equal(gemini.GEMINI_ANALYSIS_FALLBACK_MODEL, "gemini-3.8-flash");
+});
+
 test("falls back to a secondary model when the primary remains overloaded", async () => {
   const gemini = await import("../lib/ai/gemini.ts");
   assert.equal(typeof gemini.withAIModelFallback, "function");
