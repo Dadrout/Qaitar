@@ -120,6 +120,14 @@ test("separates facts, law, and next action without offering unsupported claims"
   assert.match(`${result}\n${copy}`, /Официальный источник/);
 });
 
+test("legal recommendation failures emit safe stage diagnostics", () => {
+  const route = readSource("app/api/legal-recommendation/route.ts");
+  assert.match(route, /let stage = "parse-request"/);
+  assert.match(route, /console\.error\("Legal recommendation failed", \{/);
+  assert.match(route, /stage,/);
+  assert.doesNotMatch(route, /console\.error\([^\n]*(input|analysis|request)/);
+});
+
 test("presents generated and incoming documents as actionable workflow artifacts", () => {
   const claim = readSource("components/qaitar/claim-editor.tsx");
   const response = readSource("components/qaitar/seller-response.tsx");
