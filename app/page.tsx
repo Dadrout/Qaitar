@@ -1,5 +1,5 @@
-import { QaitarApp } from "../components/qaitar/qaitar-app";
+import { LandingPage } from "../components/qaitar/landing-page";
 
 export default function Home() {
-  return <QaitarApp />;
+  return <LandingPage />;
 }
