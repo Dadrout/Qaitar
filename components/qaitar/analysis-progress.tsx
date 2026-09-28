@@ -4,10 +4,11 @@ import { useEffect, useState } from "react";
 import { Check, Sparkles } from "lucide-react";
 
 import { Card, CardContent } from "../ui/card";
-import { ru } from "../../lib/i18n/ru.ts";
+import { useLanguage } from "./language-provider";
 
 export function AnalysisProgress({ phase }: { phase: "analysis" | "legal" | "response" }) {
-  const messages = ru.progress[phase];
+  const { messages: copy } = useLanguage();
+  const messages = copy.progress[phase];
   const [active, setActive] = useState(0);
 
   useEffect(() => {
@@ -22,7 +23,7 @@ export function AnalysisProgress({ phase }: { phase: "analysis" | "legal" | "res
         <CardContent className="p-7 sm:p-10">
           <div className="mb-8 flex items-center gap-4">
             <span className="grid size-12 place-items-center rounded-2xl bg-primary/10 text-primary"><Sparkles className="size-5" /></span>
-            <div><p className="text-xl font-semibold tracking-[-.025em]">Qaitar разбирает ситуацию</p><p className="mt-1 text-sm leading-6 text-muted-foreground">Сверяем документы, факты и официальные источники по шагам.</p></div>
+            <div><p className="text-xl font-semibold tracking-[-.025em]">{copy.progress.title}</p><p className="mt-1 text-sm leading-6 text-muted-foreground">{copy.progress.hint}</p></div>
           </div>
           <div className="space-y-2.5" aria-live="polite">
             {messages.map((message, index) => (

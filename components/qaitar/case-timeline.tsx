@@ -1,10 +1,11 @@
 import { Check, Circle } from "lucide-react";
 
 import { getTimelineSteps } from "../../lib/client-case.ts";
-import { ru } from "../../lib/i18n/ru.ts";
+import { useLanguage } from "./language-provider";
 
 export function CaseTimeline({ state, compact = false }: { state: string; compact?: boolean }) {
-  const steps = getTimelineSteps(state);
+  const { messages } = useLanguage();
+  const steps = getTimelineSteps(state).map((step, index) => ({ ...step, label: messages.timeline.steps[index] }));
 
   if (compact) {
     const current = steps.findIndex((step) => step.status === "current");
@@ -13,10 +14,10 @@ export function CaseTimeline({ state, compact = false }: { state: string; compac
       <div className="border-b border-border/80 bg-card px-4 py-3 lg:hidden">
         <div className="mx-auto max-w-3xl">
           <div className="mb-2 flex items-center justify-between gap-4 text-xs">
-            <span className="min-w-0 truncate font-semibold text-foreground">Сейчас: {steps[active].label}</span>
-            <span className="shrink-0 font-medium text-muted-foreground">Шаг {active + 1} из {steps.length}</span>
+            <span className="min-w-0 truncate font-semibold text-foreground">{messages.timeline.now}: {steps[active].label}</span>
+            <span className="shrink-0 font-medium text-muted-foreground">{messages.timeline.step} {active + 1} {messages.timeline.of} {steps.length}</span>
           </div>
-          <div className="flex gap-1.5" aria-label={`Прогресс дела: шаг ${active + 1} из ${steps.length}`}>{steps.map((step, index) => <span key={step.label} className={`h-1.5 flex-1 rounded-full transition-colors duration-200 ${index < active ? "bg-primary/55" : index === active ? "bg-primary" : "bg-muted"}`} />)}</div>
+          <div className="flex gap-1.5" aria-label={`${messages.timeline.progress}: ${messages.timeline.step} ${active + 1} ${messages.timeline.of} ${steps.length}`}>{steps.map((step, index) => <span key={step.label} className={`h-1.5 flex-1 rounded-full transition-colors duration-200 ${index < active ? "bg-primary/55" : index === active ? "bg-primary" : "bg-muted"}`} />)}</div>
         </div>
       </div>
     );
@@ -24,7 +25,7 @@ export function CaseTimeline({ state, compact = false }: { state: string; compac
 
   return (
     <div>
-      <p className="mb-4 px-2 text-[11px] font-bold uppercase tracking-[.14em] text-muted-foreground">{ru.timeline.title}</p>
+      <p className="mb-4 px-2 text-[11px] font-bold uppercase tracking-[.14em] text-muted-foreground">{messages.timeline.title}</p>
       <ol className="space-y-1">
         {steps.map((step, index) => (
           <li key={step.label} aria-current={step.status === "current" ? "step" : undefined} className={`relative flex min-h-11 items-center gap-3 rounded-xl px-2 transition-colors duration-200 ${step.status === "current" ? "bg-primary/[.055]" : ""}`}>

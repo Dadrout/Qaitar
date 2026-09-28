@@ -20,7 +20,8 @@ test("uses the refined LegalTech visual tokens and reduced-motion guard", () => 
 
 test("renders the compact shell and evidence-to-action tagline", () => {
   const shell = readSource("components/qaitar/app-shell.tsx");
-  assert.match(shell, /Доказательства → Закон → Действие/);
+  const copy = readSource("lib/i18n/ru.ts");
+  assert.match(`${shell}\n${copy}`, /Доказательства → Закон → Действие/);
   assert.match(shell, /lg:grid-cols-\[232px_minmax\(0,1fr\)\]/);
   assert.match(shell, /qaitar-logo\.png/);
 });
@@ -79,8 +80,8 @@ test("makes the first screen evidence-first and explains the disabled action", (
   const copy = readSource("lib/i18n/ru.ts");
   assert.match(`${screen}\n${copy}`, /Загрузите доказательства/);
   assert.match(`${screen}\n${copy}`, /Что произошло\?/);
-  assert.match(screen, /files\.length === 0[\s\S]*Добавьте хотя бы один файл/);
-  assert.match(screen, /Проверяем по официальным источникам Казахстана/);
+  assert.match(screen, /files\.length === 0[\s\S]*messages\.newCase\.addFileHint/);
+  assert.match(copy, /Проверяем по официальным источникам Казахстана/);
   assert.match(screen, /aria-pressed=\{selected\}/);
 });
 
@@ -103,7 +104,7 @@ test("labels AI work and fact confirmation as explicit workflow stages", () => {
   const progress = readSource("components/qaitar/analysis-progress.tsx");
   const review = readSource("components/qaitar/case-review.tsx");
   const copy = readSource("lib/i18n/ru.ts");
-  assert.match(progress, /Qaitar разбирает ситуацию/);
+  assert.match(`${progress}\n${copy}`, /Qaitar разбирает ситуацию/);
   assert.match(progress, /aria-live="polite"/);
   assert.match(`${review}\n${copy}`, /Проверьте факты перед юридическим анализом/);
   assert.match(`${review}\n${copy}`, /Подтвердить и проверить закон/);
@@ -111,11 +112,12 @@ test("labels AI work and fact confirmation as explicit workflow stages", () => {
 
 test("separates facts, law, and next action without offering unsupported claims", () => {
   const result = readSource("components/qaitar/legal-result.tsx");
-  assert.match(result, /Что произошло/);
-  assert.match(result, /Что говорит закон/);
-  assert.match(result, /Что делать дальше/);
+  const copy = readSource("lib/i18n/ru.ts");
+  assert.match(`${result}\n${copy}`, /Что произошло/);
+  assert.match(`${result}\n${copy}`, /Что говорит закон/);
+  assert.match(`${result}\n${copy}`, /Что делать дальше/);
   assert.match(result, /found &&[\s\S]*onPrepare/);
-  assert.match(result, /Официальный источник/);
+  assert.match(`${result}\n${copy}`, /Официальный источник/);
 });
 
 test("presents generated and incoming documents as actionable workflow artifacts", () => {

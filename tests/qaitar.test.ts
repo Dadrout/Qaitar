@@ -476,6 +476,131 @@ test("parses provider JSON through the requested Zod schema", async () => {
   );
 });
 
+test("retries temporary AI outages before returning the analysis", async () => {
+  const gemini = await import("../lib/ai/gemini.ts");
+  assert.equal(typeof gemini.withTransientAIRetry, "function");
+
+  let attempts = 0;
+  const result = await gemini.withTransientAIRetry(async () => {
+    attempts += 1;
+    if (attempts < 3) throw Object.assign(new Error("provider unavailable"), { status: 503 });
+    return "analysis-ready";
+  }, [0, 0]);
+
+  assert.equal(result, "analysis-ready");
+  assert.equal(attempts, 3);
+});
+
+test("does not retry permanent AI request errors", async () => {
+  const gemini = await import("../lib/ai/gemini.ts");
+  let attempts = 0;
+
+  await assert.rejects(
+    gemini.withTransientAIRetry(async () => {
+      attempts += 1;
+      throw Object.assign(new Error("bad request"), { status: 400 });
+    }, [0, 0]),
+    /bad request/,
+  );
+  assert.equal(attempts, 1);
+});
+
+test("explains provider overload without blaming document quality", async () => {
+  const gemini = await import("../lib/ai/gemini.ts");
+  assert.match(
+    gemini.getAIUserMessage(Object.assign(new Error("unavailable"), { status: 503 })),
+    /сервис анализа временно перегружен/i,
+  );
+});
+
+test("falls back to a secondary model when the primary remains overloaded", async () => {
+  const gemini = await import("../lib/ai/gemini.ts");
+  assert.equal(typeof gemini.withAIModelFallback, "function");
+
+  const attemptedModels: string[] = [];
+  const result = await gemini.withAIModelFallback(
+    ["primary-model", "fallback-model"],
+    async (model) => {
+      attemptedModels.push(model);
+      if (model === "primary-model") {
+        throw Object.assign(new Error("provider unavailable"), { status: 503 });
+      }
+      return "analysis-ready";
+    },
+    [],
+  );
+
+  assert.equal(result, "analysis-ready");
+  assert.deepEqual(attemptedModels, ["primary-model", "fallback-model"]);
+});
+
+test("falls back immediately when an AI model exceeds its request timeout", async () => {
+  const gemini = await import("../lib/ai/gemini.ts");
+  const attemptedModels: string[] = [];
+
+  const result = await gemini.withAIModelFallback(
+    ["slow-model", "fast-model"],
+    async (model) => {
+      attemptedModels.push(model);
+      if (model === "slow-model") throw new DOMException("request timed out", "AbortError");
+      return "analysis-ready";
+    },
+    [],
+  );
+
+  assert.equal(result, "analysis-ready");
+  assert.deepEqual(attemptedModels, ["slow-model", "fast-model"]);
+});
+
+test("builds the case from extracted document facts without another AI request", async () => {
+  const { buildCase } = await import("../lib/ai/build-case.ts");
+
+  const result = await buildCase([
+    {
+      documentType: "receipt",
+      merchant: "Example Electronics",
+      purchaseDate: "2026-09-12",
+      productName: "Беспроводные наушники",
+      price: 39_990,
+      currency: "KZT",
+      orderNumber: "A-42",
+      extractedText: "Кассовый чек A-42",
+      confidence: 0.96,
+      unreadableReason: null,
+    },
+    {
+      documentType: "seller_response",
+      merchant: null,
+      purchaseDate: null,
+      productName: null,
+      price: null,
+      currency: "KZT",
+      orderNumber: null,
+      extractedText: "Продавец отказал в возврате денег",
+      confidence: 0.9,
+      unreadableReason: null,
+    },
+  ], { problemType: "defective_product", locale: "ru" });
+
+  assert.equal(result.caseType, "defective_product");
+  assert.equal(result.seller.name, "Example Electronics");
+  assert.equal(result.product.name, "Беспроводные наушники");
+  assert.equal(result.product.price, 39_990);
+  assert.equal(result.purchaseDate, "2026-09-12");
+  assert.equal(result.issue, "Товар с недостатком");
+  assert.equal(result.sellerResponse, "Продавец отказал в возврате денег");
+  assert.deepEqual(result.facts.map((fact) => fact.key), [
+    "seller",
+    "product",
+    "amount",
+    "purchaseDate",
+    "issue",
+    "sellerResponse",
+  ]);
+  assert.deepEqual(result.missingInformation, []);
+  assert.equal(result.confidence, "high");
+});
+
 test("uses the user's exact description as the issue fact", async () => {
   const { buildCase } = await import("../lib/ai/build-case.ts");
   const { documentAnalysisFixture } = await import("./fixtures.ts");
@@ -658,6 +783,22 @@ test("a restored demo retains provenance for a coherent review issue edit", asyn
   assert.equal(edited.analysis.summary, description);
   assert.equal(edited.analysis.issue, description);
   assert.equal(edited.problemDescription, description);
+});
+
+test("analyzes a seller response even when a legacy saved case has no analysis context", async () => {
+  const route = await import("../app/api/seller-response/route.ts");
+  const form = new FormData();
+  form.set("file", new File(["demo refusal"], "seller-response.pdf", { type: "application/pdf" }));
+  form.set("demo", "true");
+
+  const response = await route.POST(new Request("http://localhost/api/seller-response", {
+    method: "POST",
+    body: form,
+  }));
+  const payload = await response.json() as { responseAnalysis?: { responseType: string } };
+
+  assert.equal(response.status, 200);
+  assert.equal(payload.responseAnalysis?.responseType, "rejected");
 });
 
 test("returns a safe legal fallback with no invented provisions", async () => {
