@@ -32,6 +32,7 @@ export async function createLegalSearchRequest(caseData: CaseAnalysis) {
 Дело: ${JSON.stringify(caseData)}`,
     schema: LegalSearchRequestSchema,
     jsonSchema: legalSearchJsonSchema,
+    thinkingBudget: 0,
   });
 }
 
@@ -54,6 +55,7 @@ export async function reasonFromLegalChunks(
 Официальные фрагменты: ${JSON.stringify(chunks)}`,
     schema: LegalRecommendationSchema,
     jsonSchema: legalRecommendationJsonSchema,
+    thinkingBudget: 0,
   });
 
   if (result.legalBasis.some((basis) => !allowedSources.includes(basis.sourceUrl))) {

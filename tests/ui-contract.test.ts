@@ -128,6 +128,11 @@ test("legal recommendation failures emit safe stage diagnostics", () => {
   assert.doesNotMatch(route, /console\.error\([^\n]*(input|analysis|request)/);
 });
 
+test("legal reasoning uses the low-latency Gemini execution profile", () => {
+  const reasoning = readSource("lib/ai/legal-reasoning.ts");
+  assert.equal((reasoning.match(/thinkingBudget:\s*0/g) ?? []).length, 2);
+});
+
 test("presents generated and incoming documents as actionable workflow artifacts", () => {
   const claim = readSource("components/qaitar/claim-editor.tsx");
   const response = readSource("components/qaitar/seller-response.tsx");
