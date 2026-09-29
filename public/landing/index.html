@@ -1,0 +1,1255 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/landing/" />
+    <meta
+      name="description"
+      content="Qaitar AI — интеллектуальная защита прав потребителей в Казахстане."
+    />
+    <title>Qaitar AI — защита прав потребителей</title>
+    <style>
+      @font-face {
+        font-family: Inter;
+        src: url("icons/inter-400.ttf") format("truetype");
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: Inter;
+        src: url("icons/inter-500.ttf") format("truetype");
+        font-style: normal;
+        font-weight: 500;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: Inter;
+        src: url("icons/inter-600.ttf") format("truetype");
+        font-style: normal;
+        font-weight: 600;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: Inter;
+        src: url("icons/inter-700.ttf") format("truetype");
+        font-style: normal;
+        font-weight: 700;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: Inter;
+        src: url("icons/inter-800.ttf") format("truetype");
+        font-style: normal;
+        font-weight: 800;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: Nunito;
+        src: url("icons/nunito-700.ttf") format("truetype");
+        font-style: normal;
+        font-weight: 700;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: Nunito;
+        src: url("icons/nunito-800.ttf") format("truetype");
+        font-style: normal;
+        font-weight: 800;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: Nunito;
+        src: url("icons/nunito-900.ttf") format("truetype");
+        font-style: normal;
+        font-weight: 900;
+        font-display: swap;
+      }
+
+      :root {
+        --color-primary: #3366f2;
+        --color-ink: #09090f;
+        --color-copy: #52525b;
+        --color-muted: #a1a1aa;
+        --color-line: #e7e7ec;
+        --color-line-strong: #d9d9e0;
+        --color-surface: #f7f7fa;
+        --color-white: #fff;
+        --font-body: Inter, Arial, sans-serif;
+        --font-display: Nunito, Arial, sans-serif;
+        --fs-label: 13px;
+        --fs-body: 16px;
+        --fs-h2: 40px;
+        --space-1: 8px;
+        --space-2: 12px;
+        --space-3: 16px;
+        --space-4: 24px;
+        --space-5: 32px;
+        --space-6: 40px;
+        --space-7: 48px;
+        --page-gutter: 80px;
+        --radius-sm: 4px;
+        --radius-md: 8px;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        background: var(--color-white);
+        color: var(--color-ink);
+        font-family: var(--font-body);
+        -webkit-font-smoothing: antialiased;
+      }
+      button,
+      a {
+        font: inherit;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      img {
+        display: block;
+        max-width: 100%;
+      }
+      p,
+      h1,
+      h2,
+      h3 {
+        margin: 0;
+      }
+      .site {
+        min-width: 320px;
+        overflow: hidden;
+      }
+      .section {
+        padding-right: var(--page-gutter);
+        padding-left: var(--page-gutter);
+      }
+      .eyebrow {
+        font-size: var(--fs-label);
+        font-weight: 700;
+        line-height: normal;
+        text-transform: uppercase;
+      }
+      .eyebrow--primary {
+        color: var(--color-primary);
+      }
+      .eyebrow--copy {
+        color: var(--color-copy);
+      }
+      .section-title {
+        max-width: 900px;
+        font-family: var(--font-display);
+        font-size: var(--fs-h2);
+        font-weight: 800;
+        line-height: 1.2;
+      }
+      .section-heading {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-3);
+      }
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--space-2);
+        min-height: 55px;
+        padding: 18px 36px;
+        border: 1px solid transparent;
+        border-radius: var(--radius-sm);
+        font-family: var(--font-display);
+        font-size: 15px;
+        font-weight: 800;
+        line-height: normal;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition:
+          background-color 0.2s ease,
+          color 0.2s ease,
+          border-color 0.2s ease;
+      }
+      .button img {
+        width: 16px;
+        height: 16px;
+      }
+      .button--primary {
+        background: var(--color-primary);
+        color: var(--color-white);
+      }
+      .button--primary:hover {
+        background: #2857db;
+      }
+      .button--secondary {
+        border-color: var(--color-line-strong);
+        background: var(--color-white);
+        color: var(--color-ink);
+      }
+      .button--secondary:hover {
+        border-color: var(--color-primary);
+      }
+
+      .header {
+        position: relative;
+        z-index: 20;
+        display: flex;
+        height: 96px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 var(--page-gutter);
+        border-bottom: 1px solid var(--color-line);
+        background: var(--color-white);
+      }
+      .header__logo {
+        width: 104.451px;
+        height: 28px;
+        flex: none;
+      }
+      .header__logo img {
+        width: 104.451px;
+        height: 28px;
+      }
+      .header__nav {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+      }
+      .header__description {
+        color: var(--color-copy);
+        font-size: 14px;
+        font-weight: 500;
+        line-height: normal;
+        white-space: nowrap;
+      }
+      .header__badge {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 20px;
+        background: var(--color-primary);
+        color: var(--color-white);
+        font-size: 12px;
+        font-weight: 700;
+        line-height: normal;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+      .header__badge img {
+        width: 6px;
+        height: 6px;
+      }
+      .header__toggle {
+        display: none;
+        width: 44px;
+        height: 44px;
+        padding: 10px;
+        border: 0;
+        background: transparent;
+        cursor: pointer;
+      }
+      .header__toggle-lines,
+      .header__toggle-lines::before,
+      .header__toggle-lines::after {
+        display: block;
+        width: 24px;
+        height: 2px;
+        background: var(--color-ink);
+        transition:
+          transform 0.25s ease,
+          opacity 0.25s ease;
+      }
+      .header__toggle-lines {
+        position: relative;
+      }
+      .header__toggle-lines::before,
+      .header__toggle-lines::after {
+        position: absolute;
+        left: 0;
+        content: "";
+      }
+      .header__toggle-lines::before {
+        top: -7px;
+      }
+      .header__toggle-lines::after {
+        top: 7px;
+      }
+      .header__toggle[aria-expanded="true"] .header__toggle-lines {
+        background: transparent;
+      }
+      .header__toggle[aria-expanded="true"] .header__toggle-lines::before {
+        top: 0;
+        transform: rotate(45deg);
+      }
+      .header__toggle[aria-expanded="true"] .header__toggle-lines::after {
+        top: 0;
+        transform: rotate(-45deg);
+      }
+
+      .hero {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-7);
+        padding-top: 120px;
+        padding-bottom: 100px;
+      }
+      .hero__title {
+        width: 100%;
+        font-family: var(--font-display);
+        font-size: 72px;
+        font-weight: 800;
+        line-height: 1.08;
+        letter-spacing: 0;
+      }
+      .hero__copy {
+        max-width: 840px;
+        color: var(--color-copy);
+        font-size: 20px;
+        font-weight: 400;
+        line-height: 1.65;
+      }
+      .hero__actions {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+      }
+
+      .problem {
+        display: flex;
+        flex-direction: column;
+        gap: 80px;
+        padding-top: 100px;
+        padding-bottom: 120px;
+        background: var(--color-surface);
+      }
+      .problem__layout {
+        display: grid;
+        grid-template-columns: 560px minmax(0, 1fr);
+        gap: 64px;
+        align-items: start;
+      }
+      .problem__stat {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-4);
+      }
+      .problem__number {
+        color: var(--color-primary);
+        font-family: var(--font-display);
+        font-size: 140px;
+        font-weight: 900;
+        line-height: normal;
+        white-space: nowrap;
+      }
+      .problem__stat-copy {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-2);
+      }
+      .problem__stat-title {
+        font-family: var(--font-display);
+        font-size: 24px;
+        font-weight: 800;
+        line-height: normal;
+      }
+      .problem__text {
+        color: var(--color-copy);
+        font-size: 16px;
+        line-height: 1.65;
+      }
+      .problem__details {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        gap: var(--space-7);
+      }
+      .problem__cards {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--space-5);
+      }
+      .problem-card {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        gap: var(--space-2);
+        padding: 32px;
+        border: 1px solid var(--color-line);
+        border-radius: var(--radius-sm);
+        background: var(--color-white);
+      }
+      .problem-card__number {
+        font-family: var(--font-display);
+        font-size: 48px;
+        font-weight: 900;
+        line-height: normal;
+      }
+      .problem-card__title {
+        color: var(--color-copy);
+        font-family: var(--font-display);
+        font-size: 16px;
+        font-weight: 700;
+        line-height: normal;
+      }
+      .problem-card__copy {
+        color: var(--color-copy);
+        font-size: 14px;
+        line-height: 1.65;
+      }
+      .problem__summary {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-3);
+        padding: 32px;
+        border-radius: var(--radius-sm);
+        background: var(--color-primary);
+        color: var(--color-white);
+      }
+      .problem__summary-title {
+        font-family: var(--font-display);
+        font-size: 28px;
+        font-weight: 800;
+        line-height: normal;
+      }
+      .problem__summary-copy {
+        font-size: 15px;
+        line-height: 1.65;
+      }
+      .problem__source {
+        font-size: 12px;
+        font-weight: 600;
+        line-height: normal;
+        text-transform: uppercase;
+      }
+
+      .steps {
+        display: flex;
+        flex-direction: column;
+        gap: 80px;
+        padding-top: 120px;
+        padding-bottom: 120px;
+        background: var(--color-white);
+      }
+      .steps__list {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-6);
+      }
+      .step {
+        border: 1px solid var(--color-line);
+        border-radius: var(--radius-md);
+        background: var(--color-white);
+      }
+      .step--feature {
+        display: grid;
+        grid-template-columns: 580px minmax(0, 1fr);
+        gap: var(--space-7);
+        align-items: center;
+        padding: 48px;
+      }
+      .step__content {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-4);
+      }
+      .step__tag {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        color: var(--color-copy);
+        font-size: 13px;
+        font-weight: 800;
+        line-height: normal;
+        text-transform: uppercase;
+      }
+      .step--feature .step__tag {
+        color: var(--color-primary);
+      }
+      .step__line {
+        width: 30px;
+        height: 2px;
+      }
+      .step--feature .step__line {
+        width: 40px;
+      }
+      .step__title {
+        font-family: var(--font-display);
+        font-size: 28px;
+        font-weight: 800;
+        line-height: normal;
+      }
+      .step--feature .step__title {
+        font-size: 36px;
+        line-height: 1.2;
+      }
+      .step__copy {
+        color: var(--color-copy);
+        font-size: 15px;
+        line-height: 1.65;
+      }
+      .step--feature .step__copy {
+        font-size: 16px;
+      }
+      .step__image {
+        width: 100%;
+        height: 280px;
+        overflow: hidden;
+        border-radius: 6px;
+        background: var(--color-surface);
+      }
+      .step__image img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .steps__pair {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--space-5);
+      }
+      .steps__pair .step {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        gap: var(--space-4);
+        padding: 40px;
+      }
+      .step__choices {
+        display: flex;
+        width: 100%;
+        flex-direction: column;
+        gap: var(--space-1);
+        padding-top: 12px;
+      }
+      .step__choice {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        padding: 12px;
+        border: 1px solid var(--color-line);
+        border-radius: var(--radius-sm);
+        font-size: 14px;
+        font-weight: 500;
+        line-height: normal;
+      }
+      .step__choice img {
+        width: 8px;
+        height: 8px;
+      }
+      .step__result {
+        display: flex;
+        width: 100%;
+        flex-direction: column;
+        gap: var(--space-2);
+        padding: 20px;
+        border-radius: var(--radius-sm);
+        background: var(--color-primary);
+        color: var(--color-white);
+      }
+      .step__result-title {
+        font-size: 13px;
+        font-weight: 700;
+        line-height: normal;
+        text-transform: uppercase;
+      }
+      .step__result-list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        font-size: 14px;
+        line-height: 1.65;
+      }
+
+      .features {
+        display: flex;
+        flex-direction: column;
+        gap: 64px;
+        padding-top: 100px;
+        padding-bottom: 100px;
+        background: var(--color-surface);
+      }
+      .features .section-title {
+        font-size: 36px;
+      }
+      .features__grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: var(--space-5);
+      }
+      .feature-card {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        gap: var(--space-3);
+        padding: 24px;
+        border: 1px solid var(--color-line);
+        border-radius: var(--radius-sm);
+        background: var(--color-white);
+      }
+      .feature-card__number {
+        color: var(--color-copy);
+        font-family: var(--font-display);
+        font-size: 40px;
+        font-weight: 900;
+        line-height: normal;
+      }
+      .feature-card__title {
+        font-family: var(--font-display);
+        font-size: 20px;
+        font-weight: 700;
+        line-height: normal;
+      }
+      .feature-card__copy {
+        color: var(--color-copy);
+        font-size: 14px;
+        line-height: 1.65;
+      }
+
+      .closing {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: var(--space-7);
+        padding-top: 140px;
+        padding-bottom: 140px;
+        text-align: center;
+      }
+      .closing__content {
+        display: flex;
+        width: 100%;
+        flex-direction: column;
+        align-items: center;
+        gap: var(--space-4);
+      }
+      .closing__title {
+        max-width: 1000px;
+        font-family: var(--font-display);
+        font-size: 64px;
+        font-weight: 900;
+        line-height: 1;
+      }
+      .closing__copy {
+        max-width: 640px;
+        color: var(--color-copy);
+        font-size: 18px;
+        line-height: 1.65;
+      }
+
+      .footer {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-6);
+        padding-top: 64px;
+        padding-bottom: 48px;
+        background: var(--color-ink);
+      }
+      .footer__top,
+      .footer__bottom {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .footer__logo {
+        width: 104.451px;
+        height: 28px;
+      }
+      .footer__tagline {
+        color: var(--color-muted);
+        font-size: 14px;
+        line-height: normal;
+      }
+      .footer__bottom {
+        color: var(--color-copy);
+        font-size: 13px;
+        line-height: normal;
+      }
+      .footer__links {
+        display: flex;
+        gap: var(--space-4);
+      }
+
+      @media (max-width: 1024px) {
+        :root {
+          --page-gutter: 40px;
+        }
+        .header__toggle {
+          display: block;
+        }
+        .header__nav {
+          position: absolute;
+          top: 96px;
+          right: 0;
+          left: 0;
+          display: flex;
+          max-height: 0;
+          overflow: hidden;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 16px;
+          padding: 0 var(--page-gutter);
+          border-bottom: 1px solid transparent;
+          background: var(--color-white);
+          opacity: 0;
+          transition:
+            max-height 0.3s ease,
+            padding 0.3s ease,
+            opacity 0.2s ease,
+            border-color 0.3s ease;
+        }
+        .header__nav.is-open {
+          max-height: 160px;
+          padding-top: 24px;
+          padding-bottom: 24px;
+          border-color: var(--color-line);
+          opacity: 1;
+        }
+        .hero {
+          padding-top: 88px;
+          padding-bottom: 80px;
+        }
+        .hero__title {
+          font-size: 54px;
+        }
+        .problem,
+        .steps {
+          gap: 64px;
+          padding-top: 80px;
+          padding-bottom: 80px;
+        }
+        .problem__layout {
+          grid-template-columns: 1fr;
+          gap: 48px;
+        }
+        .problem__number {
+          font-size: 112px;
+        }
+        .step--feature {
+          grid-template-columns: 1fr 1fr;
+          padding: 36px;
+        }
+        .step--feature .step__title {
+          font-size: 32px;
+        }
+        .steps__pair .step {
+          padding: 32px;
+        }
+        .features {
+          padding-top: 80px;
+          padding-bottom: 80px;
+        }
+        .features__grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .closing {
+          padding-top: 110px;
+          padding-bottom: 110px;
+        }
+        .closing__title {
+          font-size: 52px;
+        }
+        .footer__bottom {
+          align-items: flex-start;
+          gap: 24px;
+        }
+        .footer__copyright {
+          max-width: 60%;
+          line-height: 1.5;
+        }
+      }
+
+      @media (max-width: 768px) {
+        :root {
+          --page-gutter: 20px;
+          --fs-h2: 32px;
+        }
+        .header {
+          height: 76px;
+        }
+        .header__nav {
+          top: 76px;
+        }
+        .hero {
+          gap: 32px;
+          padding-top: 64px;
+          padding-bottom: 64px;
+        }
+        .hero__title {
+          font-size: 40px;
+          line-height: 1.08;
+        }
+        .hero__copy {
+          font-size: 17px;
+        }
+        .hero__actions {
+          width: 100%;
+          flex-direction: column;
+          align-items: stretch;
+        }
+        .button {
+          width: 100%;
+          padding-right: 20px;
+          padding-left: 20px;
+        }
+        .problem,
+        .steps {
+          gap: 48px;
+          padding-top: 64px;
+          padding-bottom: 64px;
+        }
+        .section-title {
+          width: 100%;
+        }
+        .problem__layout {
+          gap: 40px;
+        }
+        .problem__number {
+          font-size: 74px;
+        }
+        .problem__stat-title {
+          font-size: 21px;
+        }
+        .problem__cards {
+          grid-template-columns: 1fr;
+          gap: 16px;
+        }
+        .problem__details {
+          gap: 24px;
+        }
+        .problem-card,
+        .problem__summary {
+          padding: 24px;
+        }
+        .step--feature {
+          display: flex;
+          flex-direction: column;
+          padding: 24px;
+        }
+        .step--feature .step__title {
+          font-size: 28px;
+        }
+        .step__image {
+          height: 220px;
+        }
+        .steps__pair {
+          grid-template-columns: 1fr;
+          gap: 24px;
+        }
+        .steps__pair .step {
+          padding: 24px;
+        }
+        .step__title {
+          font-size: 25px;
+          line-height: 1.2;
+        }
+        .step__choice {
+          font-size: 13px;
+        }
+        .step__result-list {
+          font-size: 13px;
+        }
+        .features {
+          gap: 48px;
+          padding-top: 64px;
+          padding-bottom: 64px;
+        }
+        .features .section-title {
+          font-size: 30px;
+        }
+        .features__grid {
+          grid-template-columns: 1fr;
+          gap: 16px;
+        }
+        .closing {
+          gap: 32px;
+          padding-top: 80px;
+          padding-bottom: 80px;
+        }
+        .closing__title {
+          font-size: 42px;
+        }
+        .closing__copy {
+          font-size: 16px;
+        }
+        .footer {
+          gap: 32px;
+          padding-top: 48px;
+          padding-bottom: 36px;
+        }
+        .footer__top,
+        .footer__bottom {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 24px;
+        }
+        .footer__bottom {
+          font-size: 12px;
+        }
+        .footer__copyright {
+          max-width: none;
+          line-height: 1.55;
+        }
+        .footer__links {
+          flex-direction: column;
+          gap: 12px;
+        }
+      }
+
+      @media (max-width: 420px) {
+        .header__description {
+          white-space: normal;
+        }
+        .hero__title {
+          font-size: 35px;
+        }
+        .problem__number {
+          font-size: 64px;
+        }
+        .closing__title {
+          font-size: 36px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="site">
+      <header class="header">
+        <a class="header__logo" href="#top" aria-label="Qaitar — на главную"
+          ><img src="/landing/icons/qaitar-logo-dark.svg" alt="Qaitar"
+        /></a>
+        <button
+          class="header__toggle"
+          type="button"
+          aria-expanded="false"
+          aria-controls="main-navigation"
+          aria-label="Открыть меню"
+        >
+          <span class="header__toggle-lines"></span>
+        </button>
+        <nav
+          class="header__nav"
+          id="main-navigation"
+          aria-label="Основная навигация"
+        >
+          <span class="header__description"
+            >Сервис защиты прав потребителей РК</span
+          >
+          <a class="header__badge" href="#how-it-works"
+            ><img src="/landing/icons/live-dot.svg" alt="" /><span>AI-Юрист РК</span></a
+          >
+        </nav>
+      </header>
+
+      <main id="top">
+        <section class="hero section" aria-labelledby="hero-title">
+          <h1 class="hero__title" id="hero-title">
+            Не изучай закон -<br />сфотографируй чек и получи<br />готовый
+            алгоритм возврата.
+          </h1>
+          <p class="hero__copy">
+            Первый специализированный AI-сервис в Казахстане, который
+            моментально превращает фотографию чека в юридически выверенную
+            претензию и пошаговый план возврата денег. Без юристов и сложных
+            кодексов.
+          </p>
+          <div class="hero__actions">
+            <a class="button button--primary" href="/app"
+              >Оформить возврат<img src="/landing/icons/arrow-white.svg" alt=""
+            /></a>
+            <a class="button button--secondary" href="#how-it-works"
+              >Как это работает<img src="/landing/icons/arrow-dark.svg" alt=""
+            /></a>
+          </div>
+        </section>
+
+        <section class="problem section" aria-labelledby="problem-title">
+          <div class="section-heading">
+            <p class="eyebrow eyebrow--primary">Масштаб проблемы / 2025 год</p>
+            <h2 class="section-title" id="problem-title">
+              Нарушения прав потребителей в Казахстане достигли исторического
+              максимума. Вы не должны молчать.
+            </h2>
+          </div>
+          <div class="problem__layout">
+            <div class="problem__stat">
+              <p class="problem__number">83 801</p>
+              <div class="problem__stat-copy">
+                <h3 class="problem__stat-title">
+                  Официальных обращений за 2025 год
+                </h3>
+                <p class="problem__text">
+                  Для сравнения: в 2024 году было зафиксировано 62 561
+                  обращение. Темп роста нарушений составил рекордные 34% всего
+                  за один год.
+                </p>
+              </div>
+            </div>
+            <div class="problem__details">
+              <div class="problem__cards">
+                <article class="problem-card">
+                  <p class="problem-card__number">42%</p>
+                  <h3 class="problem-card__title">Розничная торговля</h3>
+                  <p class="problem-card__copy">
+                    Отказ в обмене товара, продажа дефектных изделий и скрытые
+                    условия.
+                  </p>
+                </article>
+                <article class="problem-card">
+                  <p class="problem-card__number">21.8%</p>
+                  <h3 class="problem-card__title">Электронная торговля</h3>
+                  <p class="problem-card__copy">
+                    Несоответствие описанию на маркетплейсах, проблемы с
+                    доставкой и возвратом.
+                  </p>
+                </article>
+              </div>
+              <aside class="problem__summary">
+                <h3 class="problem__summary-title">
+                  64% всех нарушений приходится на эти две категории
+                </h3>
+                <p class="problem__summary-copy">
+                  Основные причины жалоб граждан: категорический отказ продавца
+                  в возврате денежных средств, обнаружение явного брака после
+                  покупки и несоответствие товара заявленным характеристикам.
+                </p>
+                <p class="problem__source">
+                  Источник: Комитет по защите прав потребителей РК, 2025 г.
+                </p>
+              </aside>
+            </div>
+          </div>
+        </section>
+
+        <section
+          class="steps section"
+          id="how-it-works"
+          aria-labelledby="steps-title"
+        >
+          <div class="section-heading">
+            <p class="eyebrow eyebrow--primary">
+              Эффективный алгоритм / 3 простых шага
+            </p>
+            <h2 class="section-title" id="steps-title">
+              Как Qaitar защищает ваши права за 5 минут
+            </h2>
+          </div>
+          <div class="steps__list">
+            <article class="step step--feature">
+              <div class="step__content">
+                <p class="step__tag">
+                  Шаг 01<img
+                    class="step__line"
+                    src="/landing/icons/line-blue.svg"
+                    alt=""
+                  />
+                </p>
+                <h3 class="step__title">
+                  Сфотографируйте чек или гарантийный талон
+                </h3>
+                <p class="step__copy">
+                  Просто загрузите фото документа в систему. Нейросеть Qaitar
+                  мгновенно распознает дату покупки, юридическое название
+                  продавца (БИН/ИИН), сумму сделки и категорию товара для
+                  точного применения статей Закона РК «О защите прав
+                  потребителей».
+                </p>
+              </div>
+              <figure class="step__image">
+                <img
+                  src="/landing/icons/receipt-photo.png"
+                  alt="Покупатель фотографирует чек смартфоном"
+                />
+              </figure>
+            </article>
+            <div class="steps__pair">
+              <article class="step">
+                <p class="step__tag">
+                  Шаг 02<img
+                    class="step__line"
+                    src="/landing/icons/line-gray.svg"
+                    alt=""
+                  />
+                </p>
+                <h3 class="step__title">Выберите проблему</h3>
+                <p class="step__copy">
+                  Укажите причину обращения из готового списка: обнаружен
+                  скрытый дефект, товар не соответствует описанию, продавец
+                  затягивает сроки ремонта или категорически отказывается
+                  возвращать деньги.
+                </p>
+                <div class="step__choices">
+                  <div class="step__choice">
+                    <img src="/landing/icons/option-dot.svg" alt="" /><span
+                      >Брак или некачественный товар</span
+                    >
+                  </div>
+                  <div class="step__choice">
+                    <img src="/landing/icons/option-dot.svg" alt="" /><span
+                      >Товар не подошел по размеру/фасону</span
+                    >
+                  </div>
+                  <div class="step__choice">
+                    <img src="/landing/icons/option-dot.svg" alt="" /><span
+                      >Продавец игнорирует сообщения</span
+                    >
+                  </div>
+                </div>
+              </article>
+              <article class="step">
+                <p class="step__tag">
+                  Шаг 03<img
+                    class="step__line"
+                    src="/landing/icons/line-gray.svg"
+                    alt=""
+                  />
+                </p>
+                <h3 class="step__title">
+                  Получите алгоритм и готовую претензию
+                </h3>
+                <p class="step__copy">
+                  Сервис сформирует досудебную претензию со всеми необходимыми
+                  ссылками на законы РК. Вы получите точный план действий: куда
+                  отправить документ, сколько дней ждать ответа и что делать,
+                  если продавец продолжит игнорировать ваши права.
+                </p>
+                <div class="step__result">
+                  <p class="step__result-title">Результат за 5 минут:</p>
+                  <ul class="step__result-list">
+                    <li>• Сгенерированная претензия в PDF формате</li>
+                    <li>
+                      • Календарь контроля сроков ответа (10 дней по закону РК)
+                    </li>
+                    <li>• Шаблон заявления в Департамент торговли</li>
+                  </ul>
+                </div>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="features section" aria-labelledby="features-title">
+          <div class="section-heading">
+            <p class="eyebrow eyebrow--copy">
+              Функционал Qaitar / информационная зона
+            </p>
+            <h2 class="section-title" id="features-title">
+              Полный юридический цикл в одном интерфейсе
+            </h2>
+          </div>
+          <div class="features__grid">
+            <article class="feature-card">
+              <p class="feature-card__number">01</p>
+              <h3 class="feature-card__title">Определяет сценарий</h3>
+              <p class="feature-card__copy">
+                Анализирует вашу ситуацию на соответствие Закону РК «О защите
+                прав потребителей» и подбирает верные статьи.
+              </p>
+            </article>
+            <article class="feature-card">
+              <p class="feature-card__number">02</p>
+              <h3 class="feature-card__title">Формирует претензию</h3>
+              <p class="feature-card__copy">
+                Конструирует официальное досудебное обращение к продавцу с
+                требованием возврата средств или замены.
+              </p>
+            </article>
+            <article class="feature-card">
+              <p class="feature-card__number">03</p>
+              <h3 class="feature-card__title">Контролирует дедлайны</h3>
+              <p class="feature-card__copy">
+                Напоминает о критических сроках ответа. По закону РК у продавца
+                есть ровно 10 календарных дней.
+              </p>
+            </article>
+            <article class="feature-card">
+              <p class="feature-card__number">04</p>
+              <h3 class="feature-card__title">Ведет до победы</h3>
+              <p class="feature-card__copy">
+                Если претензия не сработала, автоматически готовит жалобу в
+                госорганы для инициации проверки бизнеса.
+              </p>
+            </article>
+          </div>
+        </section>
+
+        <section
+          class="closing section"
+          id="start"
+          aria-labelledby="closing-title"
+        >
+          <div class="closing__content">
+            <p class="eyebrow eyebrow--primary">Быстрый старт без риска</p>
+            <h2 class="closing__title" id="closing-title">
+              Верните свои деньги законным путем уже сегодня
+            </h2>
+            <p class="closing__copy">
+              Не тратьте время на споры с продавцами. Доверьте защиту своих прав
+              искусственному интеллекту Qaitar. Начните прямо сейчас - это
+              бесплатно.
+            </p>
+          </div>
+          <a class="button button--primary" href="/app"
+            >Запустить Qaitar AI<img src="/landing/icons/arrow-white.svg" alt=""
+          /></a>
+        </section>
+      </main>
+
+      <footer class="footer section">
+        <div class="footer__top">
+          <a class="footer__logo" href="#top" aria-label="Qaitar — на главную"
+            ><img src="/landing/icons/qaitar-logo-light.svg" alt="Qaitar"
+          /></a>
+          <p class="footer__tagline">
+            Интеллектуальная защита потребителей в Казахстане
+          </p>
+        </div>
+        <div class="footer__bottom">
+          <p class="footer__copyright">
+            © 2026 Qaitar AI. Все права защищены. Разработано в соответствии с
+            законодательством Республики Казахстан.
+          </p>
+          <nav class="footer__links" aria-label="Юридическая информация">
+            <a href="#">Условия использования</a
+            ><a href="#">Политика конфиденциальности</a>
+          </nav>
+        </div>
+      </footer>
+    </div>
+
+    <script>
+      (() => {
+        const toggle = document.querySelector(".header__toggle");
+        const navigation = document.querySelector(".header__nav");
+        if (!toggle || !navigation) return;
+        const setMenu = (open) => {
+          toggle.setAttribute("aria-expanded", String(open));
+          toggle.setAttribute(
+            "aria-label",
+            open ? "Закрыть меню" : "Открыть меню",
+          );
+          navigation.classList.toggle("is-open", open);
+        };
+        toggle.addEventListener("click", () =>
+          setMenu(toggle.getAttribute("aria-expanded") !== "true"),
+        );
+        navigation.addEventListener("click", (event) => {
+          if (event.target.closest("a")) setMenu(false);
+        });
+        window.addEventListener("resize", () => {
+          if (window.innerWidth > 1024) setMenu(false);
+        });
+      })();
+    </script>
+  </body>
+</html>
