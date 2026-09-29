@@ -25,6 +25,14 @@ test("the root route serves the supplied static landing page", () => {
   assert.match(config, /destination:\s*["']\/landing\/index\.html["']/);
 });
 
+test("the browser tab icon is the compact Qaitar Q mark", () => {
+  const favicon = readFileSync(new URL("public/favicon.svg", `file://${root}`), "utf8");
+
+  assert.match(favicon, /<title>Qaitar Q<\/title>/);
+  assert.match(favicon, /fill="#3366f2"/);
+  assert.match(favicon, /aria-label="Qaitar"/);
+});
+
 test("the application remains available from its dedicated route", async () => {
   const { default: ApplicationPage } = await importComponent(
     "../app/app/page.tsx",

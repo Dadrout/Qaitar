@@ -1,4 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="18" fill="#1557ff"/>
-  <path d="M18 22h28M32 16v30M22 22l-7 14h14l-7-14Zm20 0-7 14h14l-7-14ZM24 47h16" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Qaitar">
+  <title>Qaitar Q</title>
+  <rect width="64" height="64" rx="18" fill="#3366f2"/>
+  <path d="M41.8 41.8 50 50M43.5 30.3c0 9-5.3 15.2-12.3 15.2s-12.3-6.2-12.3-15.2 5.3-15.2 12.3-15.2 12.3 6.2 12.3 15.2Z" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="5"/>
 </svg>
